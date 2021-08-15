@@ -43,10 +43,10 @@ int main(int argc, char **argv)
 
     //door.setDof(0,0.0); x rot
     //door.setDof(1,0.5); y
-    door.setDof(2,0.0);
-    door.setDof(3,0.4);
-    door.setDof(4, -0.2); // y -axis -0.2
-    door.setDof(5, 0.0);
+    //door.setDof(2,0.0);
+    //door.setDof(3,0.4);
+    //door.setDof(4, -0.2); // y -axis -0.2
+    //door.setDof(5, 0.0);
 
     //
     // Convert to Dart
@@ -83,7 +83,7 @@ int main(int argc, char **argv)
 
         darts::TSR::Specification start_spec;
         start_spec.setFrame(fetch_name, "wrist_roll_link", "base_link");
-        start_spec.setPose(0.73, -0.21, 0.76,  // goal pos 72+20
+        start_spec.setPose(0.27, -0.4, 1.26,  // goal pos 72+20
                            0.0, 0.71, 0.0, -0.71);
 
         darts::TSR start_tsr(world, start_spec);
@@ -174,20 +174,28 @@ int main(int argc, char **argv)
     const auto &plan_to_place = [&]() {
 
         darts::PlanBuilder builder(world);
+
+        auto door_joint = door_dart->getGroupJoint("dodoor","base_to_door").second;
+
+        auto door_frame = door_dart->getFrame("door");
+        auto sup = door_joint->getJointProperties();
+
+        //fetch_dart->reparentFreeFrame(door_frame, "wrist_roll_link");
+
+        //if (door_joint->getNumDofs() > 0)
+        //    fetch_dart->addNameToGroup(GROUP, "base_to_door");
+
+        auto myjoyts = fetch_dart->getGroupJoints(GROUP);
+        fetch_dart->processGroupWithJoint(GROUP,  *door_joint);
+
+        //fetch_dart->addNameToGroup(GROUP, "base_to_door");
+
+        
+        RBX_INFO("teeeeeeeeeeeeest");
+
+
         builder.addGroup(fetch_name, GROUP);
-        //builder.addGroup("myfirst","dodoor");
-        RBX_INFO("PROBLEM1");
-        builder.addGroup(door_name,"base_to_door");
         builder.setStartConfigurationFromWorld();
-        RBX_INFO("PROBLEM2");
-
-
-        darts::TSR::Specification group_spec;
-        group_spec.setTarget(fetch_name,"door");
-        group_spec.setBase(fetch_name,"wrist_roll_link");
-        group_spec.setPoseFromWorld(world);
-        auto gr_spec = std::make_shared<darts::TSR>(world,group_spec);
-        builder.addConstraint(gr_spec);
 
 
         darts::TSR::Specification constr_spec;
@@ -195,23 +203,24 @@ int main(int argc, char **argv)
         constr_spec.setPose(0.40, 0.27, 0.76,  // starting pos
                             0.5, -0.5, 0.5, 0.5);
 
+
         auto constraint_tsr = std::make_shared<darts::TSR>(world,constr_spec);
         builder.addConstraint(constraint_tsr);
-        RBX_INFO("PROBLEM6");
+
 
         builder.initialize();
         darts::TSR::Specification goal_spec;
         goal_spec.setFrame(fetch_name, "wrist_roll_link", "base_link");
-        goal_spec.setPose(0.73, -0.21, 0.76,  // goal pos
+        goal_spec.setPose(0.27 , -0.4, 0.76,  // goal pos
                           0.0, 0.71, 0.0, -0.71);
 
 
         auto goal_tsr = std::make_shared<darts::TSR>(world, goal_spec);
 
         auto goal = builder.getGoalTSR(goal_tsr);
-        //hier problem
+
         builder.setGoal(goal);
-        RBX_INFO("PROBLEM7");
+
         auto rrt = std::make_shared<ompl::geometric::RRTConnect>(builder.info, true);
         rrt->setRange(2);
         builder.ss->setPlanner(rrt);
@@ -240,8 +249,8 @@ int main(int argc, char **argv)
         plan_to_grasp();
         std::this_thread::sleep_for(std::chrono::milliseconds(2000));
 
-        auto *cube = door_dart->getFrame("base_link1");
-        fetch_dart->reparentFreeFrame(cube, "wrist_roll_link");
+        //auto *cube = door_dart->getFrame("base_link1");
+        //fetch_dart->reparentFreeFrame(cube, "wrist_roll_link");
         RBX_INFO("DURCH2");
         plan_to_place();
     });
