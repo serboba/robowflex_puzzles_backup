@@ -26,7 +26,7 @@
         <child link="door"/>
         <origin xyz="0.4 -0.25 0.3"/>
         <axis xyz="0.0 0.0 1"/>
-        <limit lower="-1.57" upper="1.57" effort="0.32" velocity="1.57"/>
+        <limit lower="-3.17" upper="0.43" effort="0.05" velocity="1.57"/>
     </joint>
 
     </robot>
