@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<robot name="objects3">
+    <group name="doorgr1">
+     <joint name="base_to_door1" />
+     </group>
+    <disable_collisions link1="base_link1" link2="door1" reason="default" />
+
+    <group name="doorgr2">
+     <joint name="base_to_door2" />
+     </group>
+    <disable_collisions link1="base_link1" link2="door2" reason="default" />
+
+
+    <group name="doorgr3">
+     <joint name="base_to_door3" />
+     </group>
+    <disable_collisions link1="base_link1" link2="door3" reason="default" />
+
+
+</robot>

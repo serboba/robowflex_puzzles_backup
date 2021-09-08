@@ -1,0 +1,67 @@
+<?xml version="1.0"?>
+    <robot name="objects3">
+
+    
+      <link name="base_link1">
+        <origin xyz="0.4 0.25 0.3"/>
+        </link>
+
+
+
+    <link name="door1">
+        <visual>
+         <geometry>
+             <box size="0.02 0.2 0.3"/>
+         </geometry>   
+         <origin rpy="0.0 0.0 0.0" xyz="0.0 0.1 0.0"/>  
+        </visual>
+    </link>
+
+
+    <link name="door2">
+        <visual>
+         <geometry>
+             <box size="0.02 0.2 0.3"/>
+         </geometry>   
+         <origin rpy="0.0 0.0 0.0" xyz="0.0 0.1 0.0"/>  
+        </visual>
+    </link>
+
+
+    <link name="door3">
+        <visual>
+         <geometry>
+             <box size="0.02 0.2 0.3"/>
+         </geometry>   
+         <origin rpy="0.0 0.0 0.0" xyz="0.0 0.1 0.0"/>  
+        </visual>
+    </link>
+
+
+    <joint name="base_to_door1" type="revolute">
+        <parent link="base_link1"/>
+        <child link="door1"/>
+        <origin rpy="0 0 0" xyz="0.55 -0.3 0.2"/>
+        <axis xyz="0.0 0.0 1"/>
+        <limit lower="-3.17" upper="0.43" effort="0.05" velocity="1.57"/>
+    </joint>
+
+    <joint name="base_to_door2" type="revolute">
+        <parent link="base_link1"/>
+        <child link="door2"/>
+        <origin rpy="0 0 1.57" xyz="0.55 0.0 0.2"/>
+        <axis xyz="0.0 0.0 1"/>
+        <limit lower="0.0" upper="3.28" effort="0.05" velocity="1.57"/>
+    </joint>
+
+    <joint name="base_to_door3" type="revolute">
+        <parent link="base_link1"/>
+        <child link="door3"/>
+        <origin rpy ="0 0 -3.14" xyz="0.55 0.3 0.2"/>
+        <axis xyz="0.0 0.0 1"/>
+        <limit lower="-4.17" upper="0.43" effort="0.05" velocity="1.57"/>
+    </joint>
+
+
+
+    </robot>
