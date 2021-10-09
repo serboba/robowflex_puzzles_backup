@@ -1,9 +1,10 @@
 /* Author: Zachary Kingston */
 
+#include <chrono>
 #include <boost/format.hpp>
 
 #include <robowflex_dart/InverseKinematics.hpp>
-#include <dart/dynamics/SimpleFrame.hpp>
+#include <robowflex_dart/SimpleFrame.hpp>
 
 #include <robowflex_library/constants.h>
 #include <robowflex_library/log.h>
@@ -43,7 +44,6 @@ void TSR::Specification::setBase(const std::string &structure, const std::string
 {
     base.structure = structure;
     base.frame = frame;
-
 }
 
 void TSR::Specification::setFrame(const std::string &structure, const std::string &target_frame,
@@ -516,19 +516,16 @@ void TSR::useWorldIndices(const std::vector<std::pair<std::size_t, std::size_t>>
     std::vector<std::size_t> use;
     for (const auto &index : indices)
     {
-        if (index.first == getSkeletonIndex() || (index.first== 1 && index.second==6))
+        if (index.first == getSkeletonIndex())
             use.emplace_back(index.second);
     }
 
     useIndices(use);
 }
 
-
 void TSR::setWorldIndices(const std::vector<std::pair<std::size_t, std::size_t>> &indices)
 {
     world_indices_ = indices;
-    std::cout << indices.size() << std::endl;
-    std::cout << " w : " << world_indices_.size() << std::endl;
     computeBijection();
 }
 
@@ -586,32 +583,185 @@ robowflex::RobotPose TSR::getTransformToFrame() const
     return tnd_->getTransform(bnd);
 }
 
-void TSR::getErrorWorldRaw(Eigen::Ref<Eigen::VectorXd> error) const
+void TSR::getErrorWorldRaw(Eigen::Ref<Eigen::VectorXd> error_p) const
 {
     world_->lock();
-    error = tsr_->computeErroor();
+    const dart::dynamics::Frame* referenceFrame = tsr_->getTaskSpaceRegionProperties().mReferenceFrame.get();
+    if (referenceFrame == nullptr)
+        referenceFrame = ik_->getTarget()->getParentFrame();
+    assert(referenceFrame != nullptr);
+
+    // Use the target's transform with respect to its reference frame
+    const Eigen::Isometry3d targetTf
+            = ik_->getTarget()->getTransform(referenceFrame);
+    // Use the actual transform with respect to the target's reference frame
+    const Eigen::Isometry3d actualTf
+            = ik_->getNode()->getTransform(referenceFrame);
+
+    // ^ This scheme makes it so that the bounds are expressed in the reference
+    // frame of the target
+
+    Eigen::Vector3d p_error = actualTf.translation() - targetTf.translation();
+    if (ik_->hasOffset())
+        p_error += actualTf.linear() * ik_->getOffset();
+
+    const Eigen::Matrix3d R_error
+            = actualTf.linear() * targetTf.linear().transpose();
+
+    Eigen::Vector6d displacement;
+    displacement << dart::math::matrixToEulerXYZ(R_error), p_error;
+
+    Eigen::Vector6d error;
+    const Eigen::Vector6d& min = tsr_->getTaskSpaceRegionProperties().mBounds.first;
+    const Eigen::Vector6d& max = tsr_->getTaskSpaceRegionProperties().mBounds.first;
+    double tolerance = ik_->getSolver()->getTolerance();
+    for (int i = 0; i < 6; ++i)
+    {
+        if (displacement[i] < min[i])
+        {
+            if (tsr_->getTaskSpaceRegionProperties().mComputeErrorFromCenter)
+            {
+                if (std::isfinite(max[i]))
+                    error[i] = displacement[i] - (min[i] + max[i]) / 2.0;
+                else
+                    error[i] = displacement[i] - (min[i] + tolerance);
+            }
+            else
+            {
+                error[i] = displacement[i] - min[i];
+            }
+        }
+        else if (max[i] < displacement[i])
+        {
+            if (tsr_->getTaskSpaceRegionProperties().mComputeErrorFromCenter)
+            {
+                if (std::isfinite(min[i]))
+                    error[i] = displacement[i] - (min[i] + max[i]) / 2.0;
+                else
+                    error[i] = displacement[i] - (max[i] - tolerance);
+            }
+            else
+            {
+                error[i] = displacement[i] - max[i];
+            }
+        }
+        else
+            error[i] = 0.0;
+    }
+
+    error = error.cwiseProduct(tsr_->getTaskSpaceRegionProperties().mErrorWeights);
+
+    if (error.norm() > tsr_->getTaskSpaceRegionProperties().mErrorLengthClamp)
+        error = error.normalized() * tsr_->getTaskSpaceRegionProperties().mErrorLengthClamp;
+
+    if (!referenceFrame->isWorld())
+    {
+        // Transform the error term into the world frame if it's not already
+        const Eigen::Isometry3d& R = referenceFrame->getWorldTransform();
+        error.head<3>() = R.linear() * error.head<3>();
+        error.tail<3>() = R.linear() * error.tail<3>();
+    }
+
+    error_p = error;
     world_->unlock();
 }
 
-void TSR::getErrorWorld(Eigen::Ref<Eigen::VectorXd> error) const
+void TSR::getErrorWorld(Eigen::Ref<Eigen::VectorXd> error_par) const
 {
     world_->lock();
-    /*
-    auto a1 = tsr_->getTaskSpaceRegionProperties();
-    auto a2 = tsr_->getReferenceFrame()->getParentFrame();
-    auto a3 = tsr_->getErrorWeights();
-    auto a4 = tsr_->getBounds();
-    */
-    OMPL_INFORM("GOINT INTO COMPER");
-    auto tsr_error = tsr_->computeErroor();
-    auto strg = "test pass";
+    std::cout << "IM GETERRORWORLD" << std::endl;
+
+//    sleep(10);
+    //const dart::dynamics::Frame *referenceFrame = tsr_->getTaskSpaceRegionProperties().mReferenceFrame.get();
+    const dart::dynamics::Frame *referenceFrame = ik_->getTarget()->getParentFrame();
+ //   if (referenceFrame == nullptr)
+ //       referenceFrame = ik_->getTarget()->getParentFrame();
+    assert(referenceFrame != nullptr);
+
+    // Use the target's transform with respect to its reference frame
+    const Eigen::Isometry3d targetTf
+            = ik_->getTarget()->getTransform(referenceFrame);
+    // Use the actual transform with respect to the target's reference frame
+    const Eigen::Isometry3d actualTf
+            = ik_->getNode()->getTransform(referenceFrame);
+
+    // ^ This scheme makes it so that the bounds are expressed in the reference
+    // frame of the target
+
+    Eigen::Vector3d p_error = actualTf.translation() - targetTf.translation();
+    if (ik_->hasOffset())
+        p_error += actualTf.linear() * ik_->getOffset();
+
+    const Eigen::Matrix3d R_error
+            = actualTf.linear() * targetTf.linear().transpose();
+
+    Eigen::Vector6d displacement;
+    displacement << dart::math::matrixToEulerXYZ(R_error), p_error;
+
+    Eigen::Vector6d error;
+    const Eigen::Vector6d& min = tsr_->getBounds().first;
+    const Eigen::Vector6d& max = tsr_->getBounds().second;
+    double tolerance = ik_->getSolver()->getTolerance();
+    for (int i = 0; i < 6; ++i)
+    {
+        if (displacement[i] < min[i])
+        {
+            if (tsr_->isComputingFromCenter())
+            {
+                if (std::isfinite(max[i]))
+                    error[i] = displacement[i] - (min[i] + max[i]) / 2.0;
+                else
+                    error[i] = displacement[i] - (min[i] + tolerance);
+            }
+            else
+            {
+                error[i] = displacement[i] - min[i];
+            }
+        }
+        else if (max[i] < displacement[i])
+        {
+            if (tsr_->isComputingFromCenter())
+            {
+                if (std::isfinite(min[i]))
+                    error[i] = displacement[i] - (min[i] + max[i]) / 2.0;
+                else
+                    error[i] = displacement[i] - (max[i] - tolerance);
+            }
+            else
+            {
+                error[i] = displacement[i] - max[i];
+            }
+        }
+        else
+            error[i] = 0.0;
+    }
+
+    error = error.cwiseProduct(tsr_->getErrorWeights());
+
+    if (error.norm() > tsr_->getErrorLengthClamp())
+        error = error.normalized() * tsr_->getErrorLengthClamp();
+
+    if (!referenceFrame->isWorld())
+    {
+        // Transform the error term into the world frame if it's not already
+        const Eigen::Isometry3d& R = referenceFrame->getWorldTransform();
+        error.head<3>() = R.linear() * error.head<3>();
+        error.tail<3>() = R.linear() * error.tail<3>();
+    }
+//std::cout << "ERROR: " << error << std::endl;
+
+
+
+
+
     std::size_t j = 0;
     for (std::size_t i = 0; i < 6; ++i)
     {
         if (spec_.indices[i])
-            error[j++] = tsr_error[i];
+            error_par[j++] = error[i];
     }
-
+std::cout << " ERROR " << std::endl;
+    std::cout << error_par << std::endl;
     world_->unlock();
 }
 
@@ -625,7 +775,6 @@ void TSR::getErrorWorldState(const Eigen::Ref<const Eigen::VectorXd> &world,
         Eigen::VectorXd state(getNumDofs());
         fromBijection(state, world);
         getError(state, error);
-
     }
 }
 
@@ -660,7 +809,7 @@ void TSR::getJacobianWorldState(const Eigen::Ref<const Eigen::VectorXd> &world,
     {
         Eigen::VectorXd state(getNumDofs());
         fromBijection(state, world);
-        std::cout<< "getdIM: " << getDimension() << "  getnumdofs : " << getNumDofs() << std::endl;
+
         Eigen::VectorXd tjac(getDimension(), getNumDofs());
         getJacobian(state, tjac);
 
@@ -681,8 +830,6 @@ void TSR::getJacobian(const Eigen::Ref<const Eigen::VectorXd> &state,
 
 double TSR::distanceWorld() const
 {
-
-    std::cout << "distance world in tsr" << std::endl;
     Eigen::VectorXd x(getDimension());
     getErrorWorld(x);
     return x.norm();
@@ -690,8 +837,6 @@ double TSR::distanceWorld() const
 
 double TSR::distanceWorldState(const Eigen::Ref<const Eigen::VectorXd> &world) const
 {
-
-    std::cout << "distance worldstate in tsr" << std::endl;
     Eigen::VectorXd x(getDimension());
     getErrorWorldState(world, x);
     return x.norm();
@@ -699,7 +844,6 @@ double TSR::distanceWorldState(const Eigen::Ref<const Eigen::VectorXd> &world) c
 
 double TSR::distance(const Eigen::Ref<const Eigen::VectorXd> &state) const
 {
-    std::cout << "distance in tsr" << std::endl;
     Eigen::VectorXd x(getDimension());
     getError(state, x);
     return x.norm();
@@ -807,6 +951,7 @@ void TSR::setPositions(const Eigen::Ref<const Eigen::VectorXd> &state) const
     world_->lock();
     ik_->setPositions(state);
     world_->unlock();
+    //std::cout << "UNLOCKED SETPOS" << std::endl;
 }
 
 void TSR::getPositionsWorldState(Eigen::Ref<Eigen::VectorXd> world) const
@@ -871,7 +1016,6 @@ void TSR::initialize()
     if (spec_.base.frame != magic::ROOT_FRAME)
     {
         auto *bnd = bskl->getBodyNode(spec_.base.frame);
-        std::cout << bnd->getName() << std::endl;
         frame_ = frame_->clone(bnd);
     }
 
@@ -879,7 +1023,6 @@ void TSR::initialize()
 
     tsr_ = &ik_->setErrorMethod<dart::dynamics::InverseKinematics::TaskSpaceRegion>();
     tsr_->setComputeFromCenter(false);
-    auto abc = world_;
 
     updatePose();
     updateBounds();
@@ -926,7 +1069,7 @@ void TSR::computeBijection()
         for (std::size_t j = 0; j < world_indices_.size(); ++j)
         {
             auto entry = world_indices_[j];
-            if ((entry.first == getSkeletonIndex() || entry.first == getSkeletonIndex()+1) and entry.second == indices_[i])
+            if (entry.first == getSkeletonIndex() and entry.second == indices_[i])
             {
                 bijection_[i] = j;
                 same &= i == j;
@@ -935,9 +1078,10 @@ void TSR::computeBijection()
         }
     }
 
-  //  if (same)
-  //      bijection_.clear();
-}
+    if (same)
+        bijection_.clear();
+
+ }
 
 ///
 /// TSRSet
@@ -972,19 +1116,8 @@ void TSRSet::addTSR(const TSRPtr &tsr, bool intersect, double weight)
 
         // copy for intersections later
         ntsr = std::make_shared<TSR>(world_, spec);
-
-        auto world_indic = tsr->getWorldIndices();
-        ntsr->setWorldIndices(world_indic);
-
-        std::vector<std::size_t> use;
-        for (const auto &index : tsr->getWorldIndices())
-        {
-            use.emplace_back(index.second);
-        }
-
-        //ntsr->useIndices(tsr->getIndices());
-        ntsr->useIndices(use);
-
+        ntsr->useIndices(tsr->getIndices());
+        ntsr->setWorldIndices(tsr->getWorldIndices());
 
         // weight relative frames less
         if ((weight - 1.) < constants::eps)
@@ -1079,8 +1212,6 @@ void TSRSet::getErrorWorldState(const Eigen::Ref<const Eigen::VectorXd> &world,
     for (std::size_t j = 0; j < tsrs_.size(); ++j)
     {
         const auto &tsr = tsrs_[j];
-
-        std::cout << "dim : " << tsr->getDimension() << std::endl;
         tsr->getErrorWorldState(world, error.segment(i, tsr->getDimension()));
         error.segment(i, tsr->getDimension()) *= weights_[j];
 
@@ -1118,13 +1249,7 @@ double TSRSet::distanceWorld() const
 
 double TSRSet::distanceWorldState(const Eigen::Ref<const Eigen::VectorXd> &world) const
 {
-    std::cout << "X DIM : " << getDimension() << std::endl;
-
     Eigen::VectorXd x(getDimension());
-    x.setZero();
-    // getdimension deliver E-3100 ????
-    Eigen::VectorXd y(16);
-    y.setZero();
     getErrorWorldState(world, x);
     return x.norm();
 }
@@ -1402,10 +1527,8 @@ TSRConstraint::TSRConstraint(const StateSpacePtr &space, const TSRSetPtr &tsr)
         , tsr_(tsr)
 {
     tsr_->useWorldIndices(space->getIndices());
-    auto hop = space->getIndices();
     tsr_->setWorldIndices(space->getIndices());
     tsr_->setWorld(space->getWorld());
-
 
     tsr_->setWorldLowerLimits(space->getLowerBound());
     tsr_->setWorldUpperLimits(space->getUpperBound());
