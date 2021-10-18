@@ -1,4 +1,8 @@
 //
+// Created by serboba on 14.10.21.
+//
+
+//
 // Created by serboba on 04.09.21.
 //
 
@@ -10,7 +14,10 @@
 #include <thread>
 
 #include <ompl/geometric/SimpleSetup.h>
+#include <ompl/geometric/planners/kpiece/KPIECE1.h>
+
 #include <ompl/geometric/planners/rrt/RRTConnect.h>
+#include <ompl/geometric/planners/rrt/RRT.h>
 
 #include <robowflex_library/builder.h>
 #include <robowflex_library/detail/fetch.h>
@@ -27,6 +34,8 @@
 #include <robowflex_dart/space.h>
 #include <robowflex_dart/tsr.h>
 #include <robowflex_dart/world.h>
+
+#include <robowflex_dart/rotation_helper.h>
 
 using namespace robowflex;
 
@@ -46,182 +55,204 @@ int main(int argc, char **argv)
     fetch->initialize();
     auto scene = std::make_shared<Scene>(fetch);
 
-    auto door = darts::Robot("objects3");
-    door.loadURDF("/home/serboba/Desktop/blenderFLEX/doors.urdf");
-    door.loadSRDF("/home/serboba/Desktop/blenderFLEX/doors.srdf");
+    auto door_dart = darts::loadMoveItRobot("objects3",
+                                       "/home/serboba/Desktop/blenderFLEX/doors.urdf",
+                                       "/home/serboba/Desktop/blenderFLEX/doors.srdf");
 
 
     auto fetch_dart = std::make_shared<darts::Robot>(fetch);
     auto fetch_name = fetch_dart->getName();
 
-    auto door_dart = std::make_shared<darts::Robot>(door);
     auto door_name = door_dart->getName();
-
-    auto scene_dart = std::make_shared<darts::Structure>("scene", scene);
 
     // Setup world
     auto world = std::make_shared<darts::World>();
     world->addRobot(fetch_dart);
     world->addRobot(door_dart);
-    world->addStructure(scene_dart);
 
-    fetch_dart->setJoint("r_gripper_finger_joint", 0.02);
-    fetch_dart->setJoint("l_gripper_finger_joint", 0.02);
+    fetch_dart->setJoint("r_gripper_finger_joint", 0.03);
+    fetch_dart->setJoint("l_gripper_finger_joint", 0.03);
+
+    Rotation_Helper rotation_helper;
+
     //door_dart->setJoint("base_to_door",0.0);
-    const Eigen::Vector3d start_position_door1 = {0.55,-0.13,0.52};
+    const Eigen::Vector3d start_position_door1 = {0.55,-0.13,0.62};
     const Eigen::Quaterniond start_rotation_door1 {0.5, -0.5, 0.5, 0.5};
 
-    const Eigen::Vector3d end_position_door1 = {0.72,-0.3,0.52};
-    const Eigen::Quaterniond end_rotation_door1 {0.0, 0.71, 0.0, -0.71};
+    const Eigen::Vector3d end_position_door1 = {0.72,-0.3,0.62};
+ //   const Eigen::Quaterniond end_rotation_door1 {0.7071,0,0.7071,0};
 
-    const Eigen::Vector3d start_position_door2 = {0.38, 0.0,0.52};
-    const Eigen::Quaterniond start_rotation_door2= {0.0, 0.71, 0.0, -0.71};
+    const Eigen::Vector3d start_position_door2 = {0.48, 0.0,0.62};
+    const Eigen::Quaterniond start_rotation_door2= {0.0 , 0.7071 , 0.0 , -0.7071};
 
-    const Eigen::Vector3d end_position_door2 = {0.72, 0.0,0.52};
-    const Eigen::Quaterniond end_rotation_door2= {0.5, -0.5, 0.5, 0.5};
+    const Eigen::Vector3d end_position_door2 = {0.65, -0.17,0.62};
+ //   const Eigen::Quaterniond end_rotation_door2= {0.7071,0,0.7071,0};
 
 
-    const Eigen::Vector3d start_position_door3 = {0.55, 0.13,0.52};
-    const Eigen::Quaterniond start_rotation_door3 = {0.5, -0.5, 0.5, 0.5};
+    const Eigen::Vector3d start_position_door3 = {0.55, 0.13,0.62};
+    const Eigen::Quaterniond start_rotation_door3 = {0.5 , 0.5 , 0.5 , -0.5};
 
-    const Eigen::Vector3d end_position_door3 = {0.55, 0.30,0.52};
-    const Eigen::Quaterniond end_rotation_door3 = {0.5, -0.5, 0.5, 0.5};
+    const Eigen::Vector3d end_position_door3 = {0.38, 0.30,0.62};
+    //const Eigen::Quaterniond end_rotation_door3 = {0.5, -0.5, 0.5, -0.5};
+
+    std::list<ompl::geometric::PathGeometric> path_results;
 
 
     darts::Window window(world);
-    const auto &plan_to_grasp1 = [&](){
+    const auto &plan_to_grasp1 = [&](Eigen::Vector3d start_position, Eigen::Quaterniond start_rotation){
+
         darts::PlanBuilder builder(world);
         builder.addGroup(fetch_name,GROUP);
-
-        darts::TSR::Specification start_spec;
-        start_spec.setFrame(fetch_name,"wrist_roll_link", "base_link");
-        start_spec.setPoseFromWorld(world);
-
-        darts::TSR start_tsr(world, start_spec);
-        start_tsr.useGroup(GROUP);
-        start_tsr.initialize();
-        start_tsr.solveWorld();
 
         builder.setStartConfigurationFromWorld();
         builder.initialize();
 
         darts::TSR::Specification goal_spec;
+        start_position.z()+= 0.2;
         goal_spec.setFrame(fetch_name, "wrist_roll_link", "base_link");
-        auto grasp_pos1 = start_position_door1;
-        grasp_pos1.z() = grasp_pos1.z()+0.2;
-        goal_spec.setPose(grasp_pos1,  // goal pos
-                          start_rotation_door1);
+        goal_spec.setPose(start_position,  // goal pos
+                          start_rotation);
 
         auto goal_tsr = std::make_shared<darts::TSR>(world, goal_spec);
         auto goal = builder.getGoalTSR(goal_tsr);
         builder.setGoal(goal);
 
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-        auto rrt = std::make_shared<ompl::geometric::RRTConnect>(builder.info, true);
-        rrt->setRange(2);
+        auto rrt = std::make_shared<ompl::geometric::RRTConnect>(builder.info,true);
+        rrt->setRange(1);
         builder.ss->setPlanner(rrt);
 
         builder.setup();
 
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         goal->startSampling();
-        ompl::base::PlannerStatus solved = builder.ss->solve(60.0);
+        ompl::base::PlannerStatus solved = builder.ss->solve(60000.0);
         goal->stopSampling();
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         if (solved)
         {
             RBX_INFO("Found solution!");
             window.animatePath(builder, builder.getSolutionPath());
+            path_results.push_back(builder.getSolutionPath());
         }
         else
             RBX_WARN("No solution found");
 
     };
 
-    const auto &grasp_1 = [&](){
+    const auto &grasp = [&](){
         darts::PlanBuilder builder(world);
         builder.addGroup(fetch_name,GROUP);
 
         builder.setStartConfigurationFromWorld();
 
-        darts::TSR::Specification start_spec;
-        start_spec.setFrame(fetch_name, "wrist_roll_link", "base_link");
-        start_spec.setPoseFromWorld(world);
-        start_spec.setNoZPosTolerance();
+        darts::TSR::Specification con_spec;
+        con_spec.setFrame(fetch_name, "wrist_roll_link", "base_link");
+        con_spec.setPoseFromWorld(world);
+        con_spec.setNoZPosTolerance();
 
-        auto start_tsr = std::make_shared<darts::TSR>(world, start_spec);
-        builder.addConstraint(start_tsr);
+        auto con_tsr = std::make_shared<darts::TSR>(world, con_spec);
+        builder.addConstraint(con_tsr);
         builder.initialize();
 
         darts::TSR::Specification goal_spec;
         goal_spec.setFrame(fetch_name, "wrist_roll_link", "base_link");
-        goal_spec.setPosition(start_position_door1);
+        goal_spec.setPoseFromWorld(world);
+        auto pos = goal_spec.getPosition();
+        auto rot = goal_spec.getRotation();
+        pos.z() -= 0.20;
+
+        goal_spec.setPose(pos,rot);
 
         auto goal_tsr = std::make_shared<darts::TSR>(world, goal_spec);
         auto goal = builder.getGoalTSR(goal_tsr);
+
         builder.setGoal(goal);
 
-        auto rrt = std::make_shared<ompl::geometric::RRTConnect>(builder.info, true);
+        auto rrt = std::make_shared<ompl::geometric::RRTConnect>(builder.info,true);
         rrt->setRange(2);
         builder.ss->setPlanner(rrt);
 
         builder.setup();
 
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         goal->startSampling();
-        ompl::base::PlannerStatus solved = builder.ss->solve(10.0);
+        ompl::base::PlannerStatus solved = builder.ss->solve(600000.0);
         goal->stopSampling();
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         if (solved)
         {
             RBX_INFO("Found solution!");
             window.animatePath(builder, builder.getSolutionPath());
+            path_results.push_back(builder.getSolutionPath());
         }
         else
             RBX_WARN("No solution found??");
 
     };
 
-    const auto &plan_to_rotate1 = [&]() {
+    const auto &plan_to_rotate = [&](int direction, std::string joint_name, std::string group_name,
+                                    Eigen::Vector3d end_position) {
         darts::PlanBuilder builder(world);
         builder.addGroup(fetch_name, GROUP);
+        builder.addGroup(door_name,group_name);
 
-        darts::TSR::Specification start_spec;
-        start_spec.setFrame(fetch_name, "wrist_roll_link", "base_link");
-        start_spec.setPosition(start_position_door1);
-        start_spec.setRotation(start_rotation_door1);
-
-        darts::TSR start_tsr(world, start_spec);
-        start_tsr.useGroup(GROUP);
         builder.setStartConfigurationFromWorld();
 
-        auto door_jt = door_dart->getGroupJoints("doorgr1");
-        builder.rspace->addGroupFromJoints(GROUP,door_jt);
+
+        darts::TSR::Specification posspec;
+        posspec.setFrame(fetch_name,"wrist_roll_link","base_link");
+        posspec.setPoseFromWorld(world);
+        auto rot = posspec.getRotation();
+
+
 
         darts::TSR::Specification constr_spec2;
-        constr_spec2.setBase(door_name,"door1");
+        constr_spec2.setBase(door_name,joint_name);
         constr_spec2.setTarget(fetch_name,"wrist_roll_link");
         constr_spec2.setPoseFromWorld(world);
+
 
         auto constraint_tsr2 = std::make_shared<darts::TSR>(world,constr_spec2);
         builder.addConstraint(constraint_tsr2);
 
         builder.initialize();
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+        Eigen::Quaterniond new_rotation;
+
+        if(direction== 0)
+            new_rotation = rotation_helper.rotateRight(rot);
+        else
+            new_rotation = rotation_helper.rotateLeft(rot);
+
+
+        std::cout << "OLD ROTATION: " << std::endl;
+        std::cout << rot.w() << std::endl;
+        std::cout << rot.x() << std::endl;
+        std::cout << rot.y() << std::endl;
+        std::cout << rot.z() << std::endl;
+
+        std::cout << "NEW ROTATION: " << std::endl;
+        std::cout << new_rotation.w() << std::endl;
+        std::cout << new_rotation.x() << std::endl;
+        std::cout << new_rotation.y() << std::endl;
+        std::cout << new_rotation.z() << std::endl;
+
+
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         darts::TSR::Specification goal_spec;
         goal_spec.setFrame(fetch_name, "wrist_roll_link", "base_link");
-        goal_spec.setPose(end_position_door1,  // goal pos
-                          end_rotation_door1);
+        goal_spec.setPose(end_position,  // goal pos
+                          new_rotation);
 
         auto goal_tsr = std::make_shared<darts::TSR>(world, goal_spec);
         auto goal = builder.getGoalTSR(goal_tsr);
+        goal->setThreshold(0.01);
         builder.setGoal(goal);
 
 
-        auto rrt = std::make_shared<ompl::geometric::RRTConnect>(builder.info, true);
-        rrt->setRange(2);
+        auto rrt = std::make_shared<ompl::geometric::KPIECE1>(builder.info);
         builder.ss->setPlanner(rrt);
 
         builder.setup();
@@ -229,17 +260,18 @@ int main(int argc, char **argv)
 
         //9 builder.ss->print();
         goal->startSampling();
-        ompl::base::PlannerStatus solved = builder.ss->solve(1.0);
+        ompl::base::PlannerStatus solved = builder.ss->solve(60000.0);
         goal->stopSampling();
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         if (solved)
         {
             RBX_INFO("Found solution!");
             window.animatePath(builder, builder.getSolutionPath());
+            path_results.push_back(builder.getSolutionPath());
+
         }
         else
-            RBX_WARN("No solution foundAAAAAAAAA");
+            RBX_WARN("No solution found");
     };
 
     const auto &detach_from_door = [&](){
@@ -249,378 +281,78 @@ int main(int argc, char **argv)
 
         builder.setStartConfigurationFromWorld();
 
-        darts::TSR::Specification start_spec;
-        start_spec.setFrame(fetch_name, "wrist_roll_link", "base_link");
-        //start_spec.setPosition(end_position_door1);
-        //start_spec.setRotation(end_rotation_door1);
-        start_spec.setPoseFromWorld(world); // reached end pos change after segfault bug fixed delete 2 lines above
-        start_spec.setNoZPosTolerance();
-        auto curr_pos = start_spec.getPosition();
-        auto curr_rot = start_spec.getRotation();
-        auto start_tsr = std::make_shared<darts::TSR>(world, start_spec);
-        builder.addConstraint(start_tsr);
+        darts::TSR::Specification con_spec;
+        con_spec.setFrame(fetch_name,"wrist_roll_link","base_link");
+        con_spec.setPoseFromWorld(world);
+        con_spec.setNoZPosTolerance();
+
+        auto con_tsr = std::make_shared<darts::TSR>(world,con_spec);
+        builder.addConstraint(con_tsr);
+
+
         builder.initialize();
 
         darts::TSR::Specification goal_spec;
         goal_spec.setFrame(fetch_name, "wrist_roll_link", "base_link");
-        //auto detach_pos = end_position_door1; // for later detach from the object go up
-        //detach_pos.z() += 0.20;
-        curr_pos.z() += 0.20; //temp fix
-
-        //goal_spec.setPosition(detach_pos);
-        goal_spec.setPosition(curr_pos);
-        //goal_spec.setRotation()
-        //goal_spec.setRotation(end_rotation_door1);
-        auto goal_tsr = std::make_shared<darts::TSR>(world, goal_spec);
-        auto goal = builder.getGoalTSR(goal_tsr);
-        builder.setGoal(goal);
-
-        auto rrt = std::make_shared<ompl::geometric::RRTConnect>(builder.info, true);
-        rrt->setRange(2);
-        builder.ss->setPlanner(rrt);
-
-        builder.setup();
-
-        goal->startSampling();
-        ompl::base::PlannerStatus solved = builder.ss->solve(60.0);
-        goal->stopSampling();
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-        if (solved)
-        {
-            RBX_INFO("Found solution!");
-            window.animatePath(builder, builder.getSolutionPath());
-        }
-        else
-            RBX_WARN("No solution foundqqq");
-
-    };
-
-    const auto &plan_to_grasp2 = [&](){
-        darts::PlanBuilder builder(world);
-        builder.addGroup(fetch_name,GROUP);
-
-        darts::TSR::Specification start_spec;
-        start_spec.setFrame(fetch_name,"wrist_roll_link", "base_link");
-        start_spec.setPoseFromWorld(world);
-
-        darts::TSR start_tsr(world, start_spec);
-        start_tsr.useGroup(GROUP);
-        start_tsr.initialize();
-        start_tsr.solveWorld();
-
-        builder.setStartConfigurationFromWorld();
-        builder.initialize();
-
-        darts::TSR::Specification goal_spec;
-        goal_spec.setFrame(fetch_name, "wrist_roll_link", "base_link");
-        auto grasp_pos2 = start_position_door2;
-        grasp_pos2.z() = grasp_pos2.z()+0.2;
-        goal_spec.setPose(grasp_pos2,  // goal pos
-                          start_rotation_door2);
+        goal_spec.setPoseFromWorld(world);
+        auto pos = goal_spec.getPosition();
+        auto rot = goal_spec.getRotation();
+        pos.z()+= 0.2;
+        goal_spec.setPose(pos,rot);
 
         auto goal_tsr = std::make_shared<darts::TSR>(world, goal_spec);
         auto goal = builder.getGoalTSR(goal_tsr);
         builder.setGoal(goal);
 
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-        auto rrt = std::make_shared<ompl::geometric::RRTConnect>(builder.info, true);
-        rrt->setRange(2);
+        auto rrt = std::make_shared<ompl::geometric::RRTConnect>(builder.info,true);
         builder.ss->setPlanner(rrt);
 
         builder.setup();
 
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         goal->startSampling();
         ompl::base::PlannerStatus solved = builder.ss->solve(60.0);
         goal->stopSampling();
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         if (solved)
         {
             RBX_INFO("Found solution!");
             window.animatePath(builder, builder.getSolutionPath());
+            path_results.push_back(builder.getSolutionPath());
+
         }
         else
             RBX_WARN("No solution found");
-    };
 
-    const auto &grasp_2 = [&](){
-        darts::PlanBuilder builder(world);
-        builder.addGroup(fetch_name,GROUP);
-
-        builder.setStartConfigurationFromWorld();
-
-        darts::TSR::Specification start_spec;
-        start_spec.setFrame(fetch_name, "wrist_roll_link", "base_link");
-        start_spec.setPoseFromWorld(world);
-        start_spec.setNoZPosTolerance();
-
-        auto start_tsr = std::make_shared<darts::TSR>(world, start_spec);
-        builder.addConstraint(start_tsr);
-        builder.initialize();
-
-        darts::TSR::Specification goal_spec;
-        goal_spec.setFrame(fetch_name, "wrist_roll_link", "base_link");
-        goal_spec.setPosition(start_position_door2);
-
-        auto goal_tsr = std::make_shared<darts::TSR>(world, goal_spec);
-        auto goal = builder.getGoalTSR(goal_tsr);
-        builder.setGoal(goal);
-
-        auto rrt = std::make_shared<ompl::geometric::RRTConnect>(builder.info, true);
-        rrt->setRange(2);
-        builder.ss->setPlanner(rrt);
-
-        builder.setup();
-
-        goal->startSampling();
-        ompl::base::PlannerStatus solved = builder.ss->solve(10.0);
-        goal->stopSampling();
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-        if (solved)
-        {
-            RBX_INFO("Found solution!");
-            window.animatePath(builder, builder.getSolutionPath());
-        }
-        else
-            RBX_WARN("No solution found??");
-
-    };
-
-    const auto &plan_to_rotate2 = [&]() {
-        darts::PlanBuilder builder(world);
-        builder.addGroup(fetch_name, GROUP);
-
-        darts::TSR::Specification start_spec;
-        start_spec.setFrame(fetch_name, "wrist_roll_link", "base_link");
-        start_spec.setPose(start_position_door2, start_rotation_door1);
-
-        darts::TSR start_tsr(world, start_spec);
-        start_tsr.useGroup(GROUP);
-        builder.setStartConfigurationFromWorld();
-
-        auto door_jt = door_dart->getGroupJoints("doorgr2");
-        builder.rspace->addGroupFromJoints(GROUP,door_jt);
-
-        darts::TSR::Specification constr_spec2;
-        constr_spec2.setBase(door_name,"door2");
-        constr_spec2.setTarget(fetch_name,"wrist_roll_link");
-        constr_spec2.setPoseFromWorld(world);
-
-        auto constraint_tsr2 = std::make_shared<darts::TSR>(world,constr_spec2);
-        builder.addConstraint(constraint_tsr2);
-
-        builder.initialize();
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-        darts::TSR::Specification goal_spec;
-        goal_spec.setFrame(fetch_name, "wrist_roll_link", "base_link");
-        //goal_spec.setPose(end_position_door2, end_rotation_door2); // goal pos
-        goal_spec.setPosition(end_position_door2);
-
-        auto goal_tsr = std::make_shared<darts::TSR>(world, goal_spec);
-        auto goal = builder.getGoalTSR(goal_tsr);
-        builder.setGoal(goal);
-
-
-        auto rrt = std::make_shared<ompl::geometric::RRTConnect>(builder.info, true);
-        rrt->setRange(2);
-        builder.ss->setPlanner(rrt);
-
-        builder.setup();
-
-        //9 builder.ss->print();
-        goal->startSampling();
-        ompl::base::PlannerStatus solved = builder.ss->solve(1.0);
-        goal->stopSampling();
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-        if (solved)
-        {
-            RBX_INFO("Found solution!");
-            window.animatePath(builder, builder.getSolutionPath());
-        }
-        else
-            RBX_WARN("No solution foundAAAAAAAAA");
-    };
-
-    const auto &plan_to_grasp3 = [&](){
-        darts::PlanBuilder builder(world);
-        builder.addGroup(fetch_name,GROUP);
-
-        darts::TSR::Specification start_spec;
-        start_spec.setFrame(fetch_name,"wrist_roll_link", "base_link");
-        start_spec.setPoseFromWorld(world);
-
-        darts::TSR start_tsr(world, start_spec);
-        start_tsr.useGroup(GROUP);
-        start_tsr.initialize();
-        start_tsr.solveWorld();
-
-        builder.setStartConfigurationFromWorld();
-        builder.initialize();
-
-        darts::TSR::Specification goal_spec;
-        goal_spec.setFrame(fetch_name, "wrist_roll_link", "base_link");
-        auto grasp_pos3 = start_position_door3;
-        grasp_pos3.z() = grasp_pos3.z()+0.2;
-        goal_spec.setPose(grasp_pos3,  // goal pos
-                          start_rotation_door3);
-
-        auto goal_tsr = std::make_shared<darts::TSR>(world, goal_spec);
-        auto goal = builder.getGoalTSR(goal_tsr);
-        builder.setGoal(goal);
-
-
-        auto rrt = std::make_shared<ompl::geometric::RRTConnect>(builder.info, true);
-        rrt->setRange(2);
-        builder.ss->setPlanner(rrt);
-
-        builder.setup();
-
-        goal->startSampling();
-        ompl::base::PlannerStatus solved = builder.ss->solve(60.0);
-        goal->stopSampling();
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-        if (solved)
-        {
-            RBX_INFO("Found solution!");
-            window.animatePath(builder, builder.getSolutionPath());
-        }
-        else
-            RBX_WARN("No solution found");
-    };
-
-    const auto &grasp_3 = [&](){
-        darts::PlanBuilder builder(world);
-        builder.addGroup(fetch_name,GROUP);
-
-        builder.setStartConfigurationFromWorld();
-
-        darts::TSR::Specification start_spec;
-        start_spec.setFrame(fetch_name, "wrist_roll_link", "base_link");
-        start_spec.setPoseFromWorld(world);
-        start_spec.setNoZPosTolerance();
-
-        auto start_tsr = std::make_shared<darts::TSR>(world, start_spec);
-        builder.addConstraint(start_tsr);
-        builder.initialize();
-
-        darts::TSR::Specification goal_spec;
-        goal_spec.setFrame(fetch_name, "wrist_roll_link", "base_link");
-        goal_spec.setPosition(start_position_door3);
-
-        auto goal_tsr = std::make_shared<darts::TSR>(world, goal_spec);
-        auto goal = builder.getGoalTSR(goal_tsr);
-        builder.setGoal(goal);
-
-        auto rrt = std::make_shared<ompl::geometric::RRTConnect>(builder.info, true);
-        rrt->setRange(2);
-        builder.ss->setPlanner(rrt);
-
-        builder.setup();
-
-        goal->startSampling();
-        ompl::base::PlannerStatus solved = builder.ss->solve(10.0);
-        goal->stopSampling();
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-        if (solved)
-        {
-            RBX_INFO("Found solution!");
-            window.animatePath(builder, builder.getSolutionPath());
-        }
-        else
-            RBX_WARN("No solution found??");
-
-    };
-
-    const auto &plan_to_rotate3 = [&]() {
-        darts::PlanBuilder builder(world);
-        builder.addGroup(fetch_name, GROUP);
-
-        darts::TSR::Specification start_spec;
-        start_spec.setFrame(fetch_name, "wrist_roll_link", "base_link");
-        start_spec.setPose(start_position_door3, start_rotation_door3);
-
-        darts::TSR start_tsr(world, start_spec);
-        start_tsr.useGroup(GROUP);
-        builder.setStartConfigurationFromWorld();
-
-        auto door_jt = door_dart->getGroupJoints("doorgr3");
-        builder.rspace->addGroupFromJoints(GROUP,door_jt);
-
-        darts::TSR::Specification constr_spec2;
-        constr_spec2.setBase(door_name,"door3");
-        constr_spec2.setTarget(fetch_name,"wrist_roll_link");
-        constr_spec2.setPoseFromWorld(world);
-
-        auto constraint_tsr2 = std::make_shared<darts::TSR>(world,constr_spec2);
-        builder.addConstraint(constraint_tsr2);
-
-        builder.initialize();
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-        darts::TSR::Specification goal_spec;
-        goal_spec.setFrame(fetch_name, "wrist_roll_link", "base_link");
-        //goal_spec.setPose(end_position_door2, end_rotation_door2); // goal pos
-        goal_spec.setPosition(end_position_door3);
-
-        auto goal_tsr = std::make_shared<darts::TSR>(world, goal_spec);
-        auto goal = builder.getGoalTSR(goal_tsr);
-        builder.setGoal(goal);
-
-
-        auto rrt = std::make_shared<ompl::geometric::RRTConnect>(builder.info, true);
-        rrt->setRange(2);
-        builder.ss->setPlanner(rrt);
-
-        builder.setup();
-
-        //9 builder.ss->print();
-        goal->startSampling();
-        ompl::base::PlannerStatus solved = builder.ss->solve(1.0);
-        goal->stopSampling();
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-        if (solved)
-        {
-            RBX_INFO("Found solution!");
-            window.animatePath(builder, builder.getSolutionPath());
-        }
-        else
-            RBX_WARN("No solution foundAAAAAAAAA");
     };
 
 
 
     window.run([&] {
-        plan_to_grasp1();
-        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-        grasp_1();
-        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-        plan_to_rotate1();
-        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+        // direction parameter 0 = right, 1 left
+
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+        plan_to_grasp1(start_position_door1,start_rotation_door1);
+        grasp();
+        plan_to_rotate(0,"door1","doorgr1", end_position_door1);
         detach_from_door();
-        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-        plan_to_grasp2();
-        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-        grasp_2();
-        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-        plan_to_rotate2();
-        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+
+
+        plan_to_grasp1(start_position_door2,start_rotation_door2);
+        grasp();
+        plan_to_rotate(1,"door2", "doorgr2", end_position_door2);
         detach_from_door();
-        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-        plan_to_grasp3();
-        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-        grasp_3();
-        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-        plan_to_rotate3();
-        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+
+        plan_to_grasp1(start_position_door3,start_rotation_door3);
+        grasp();
+        plan_to_rotate(0,"door3", "doorgr3", end_position_door3);
         detach_from_door();
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(10000));
+
+
+
 
     });
 

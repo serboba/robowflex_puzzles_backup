@@ -52,10 +52,11 @@ std::vector<double> Rotation_Helper::getDegrees(Eigen::Quaterniond q){
         rot[1] = asin(2*q.x()*q.y() + 2*q.z()*q.w());
         rot[2] = 0;
     }else{
+
         rot[0] = atan2(2*q.y()*q.w() - 2*q.x()*q.z() , 1 - 2*pow(q.y(),2) - 2*pow(q.z(),2));
         rot[1] = asin(2*q.x()*q.y() + 2*q.z()*q.w());
         rot[2] = atan2(2*q.x()*q.w() - 2*q.y()*q.z(), 1- 2* pow(q.x(),2)- 2* pow(q.z(),2));
-    }
+   }
 
     return rot;
 }
@@ -63,7 +64,7 @@ std::vector<double> Rotation_Helper::getDegrees(Eigen::Quaterniond q){
 
 Eigen::Quaterniond Rotation_Helper::rotateRight(Eigen::Quaterniond oldRotation){
     std::vector<double> newRotation = Rotation_Helper::getDegrees(oldRotation);  // heading,attitude,bank of old rotation
-    if(newRotation[2] == deg_180)
+    if(newRotation[2] == 2*deg_180)
         newRotation[2] = 0.0;
     newRotation[2] += deg_90; //bank +90 rotateright
     Rotation_Helper::roundValues(newRotation);
@@ -73,7 +74,7 @@ Eigen::Quaterniond Rotation_Helper::rotateRight(Eigen::Quaterniond oldRotation){
 
 Eigen::Quaterniond Rotation_Helper::rotateLeft(Eigen::Quaterniond oldRotation){
     std::vector<double> newRotation = Rotation_Helper::getDegrees(oldRotation);  // heading,attitude,bank of old rotation
-    if(newRotation[2] == n_deg_180)
+    if(newRotation[2] == 2*n_deg_180)
         newRotation[2] = 0.0;
     newRotation[2] -= deg_90; //bank +90 rotateright
     Rotation_Helper::roundValues(newRotation);
