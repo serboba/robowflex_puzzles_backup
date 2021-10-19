@@ -13,6 +13,8 @@ namespace robowflex{
         static std::vector<double> getDegrees(Eigen::Quaterniond q);
         static Eigen::Quaterniond rotateRight(Eigen::Quaterniond oldRotation);
         static Eigen::Quaterniond rotateLeft(Eigen::Quaterniond oldRotation);
+        static Eigen::Quaterniond rotateUp(Eigen::Quaterniond oldRotation);
+        static Eigen::Quaterniond rotateDown(Eigen::Quaterniond oldRotation);
 
 
         static void roundValues(std::vector<double> &values);
