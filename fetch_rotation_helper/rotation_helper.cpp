@@ -77,17 +77,29 @@ void Rotation_Helper::roundValues(std::vector<double> &values){
  */
 
 
-/*
-Eigen::Quaterniond Rotation::Helper rotate_yawPositive/Right?(Eigen::Quaterniond oldRotation){
-    TODO
-}
-*/
 
-/*
-Eigen::Quaterniond Rotation::Helper rotate_yawNegative/Left?(Eigen::Quaterniond oldRotation){
-    TODO
+Eigen::Quaterniond Rotation_Helper::rotateYawPositive(Eigen::Quaterniond oldRotation){
+    std::vector<double> newRotation = Rotation_Helper::getDegrees(oldRotation);
+    Rotation_Helper::roundValues(newRotation);
+    if(newRotation[0] == 2*deg_90) // ? TODO CHECK BOUNDS
+        return oldRotation; // DO NOTHING
+    newRotation[0] += deg_90;
+    Rotation_Helper::roundValues(newRotation);
+    return Rotation_Helper::calculateCS(newRotation);
 }
-*/
+
+
+
+Eigen::Quaterniond Rotation_Helper::rotateYawNegative(Eigen::Quaterniond oldRotation){
+    std::vector<double> newRotation = Rotation_Helper::getDegrees(oldRotation);
+    Rotation_Helper::roundValues(newRotation);
+    if(newRotation[0] == 2*n_deg_90) // -90 degrees looking up already, cant rotate up no more
+        return oldRotation; // DO NOTHING OUT OF BOUNDS
+    newRotation[0] -= deg_90; //heading -90 rotate upwards
+    Rotation_Helper::roundValues(newRotation);
+    return Rotation_Helper::calculateCS(newRotation);
+}
+
 
 
 /*
