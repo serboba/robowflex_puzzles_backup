@@ -5,12 +5,26 @@
 // Created by serboba on 21.10.21.
 //
 
+#include <Python.h>
 #include <iostream>
 #include <fstream>
+#include <stdio.h>
+#include <stdlib.h>
+
 
 #include <Eigen/Dense>
 #include <robowflex_library/util.h>
+#include <robowflex_dart/rotation_helper.h>
+
 using namespace Eigen;
+
+
+std::string link_name,link_size,link_xyz,link_rpy;
+std::string joint_name,joint_xyz,joint_rpy;
+std::vector<std::string> link_names;
+std::vector<std::string> joint_names;
+std::vector<std::vector<double>> link_sizes,link_positions,link_rotations;
+std::vector<std::vector<double>> joint_positions,joint_rotations;
 
 MatrixXd get_object_vertices(Vector3d joint_pos, Vector3d object_size){
     MatrixXd vertices(8,3);
@@ -29,9 +43,18 @@ MatrixXd get_object_vertices(Vector3d joint_pos, Vector3d object_size){
     return vertices;
 }
 
+Quaterniond get_quaternion_from_euler(float yaw, float pitch, float roll){
+    Quaterniond q;
+    q =  AngleAxisd (yaw,Vector3d::UnitZ())*AngleAxisd (pitch,Vector3d::UnitY()) *AngleAxisd (roll,Vector3d::UnitX());
+    return q;
+}
+
+MatrixXd quaternion_to_euler(Quaterniond q){
+    return q.toRotationMatrix().eulerAngles(2,1,0);
+}
 
 MatrixXd get_rotated_vertex(std::vector<double> degrees, Vector3d point, Vector3d joint_pos ){
-    return (joint_pos+(robowflex::Rotation_Helper::calculateCS(degrees))*(point-joint_pos));
+    return (joint_pos+ get_quaternion_from_euler(degrees[2],degrees[1],degrees[0])*(point-joint_pos));
 }
 
 MatrixXd center_joint_pos(Vector3d joint_pos, Vector3d object_xyz){
@@ -53,7 +76,7 @@ MatrixXd get_middle_points(MatrixXd vertices){
 
     //unten
     edge_middle <<
-                (vertices.row(0)+vertices.row(1))/2, // links zu +x-achse
+            (vertices.row(0)+vertices.row(1))/2, // links zu +x-achse
             (vertices.row(0)+vertices.row(2))/2, // links zu +y-achse
             (vertices.row(1)+vertices.row(3))/2, // links vorne +y achse
             (vertices.row(2)+vertices.row(3))/2, // rechs unten x achse
@@ -159,19 +182,114 @@ MatrixXd generate_points_each_surface(MatrixXd lines,int number=3){
     return points_all;
 }
 
-Quaternionf get_quaternion_from_euler(float yaw, float pitch, float roll){
-    Quaternionf q;
-    q =  AngleAxisf (yaw,Vector3f::UnitZ())*AngleAxisf (pitch,Vector3f::UnitY()) *AngleAxisf (roll,Vector3f::UnitX());
-    return q;
+MatrixXd merge_rotation(MatrixXd obj_rpy, MatrixXd joint_rpy){
+    return (obj_rpy+joint_rpy);
 }
 
-MatrixXf quaternion_to_euler(Quaternionf q){
-    return q.toRotationMatrix().eulerAngles(2,1,0);
+MatrixXd sort_quaternion(Quaterniond q){
+    MatrixXd sorted_q(1,4);
+    sorted_q << q.w(), q.x(),q.y(),q.z();
+    return sorted_q;
+}
+MatrixXd translate_rotations(MatrixXd rpy){
+    MatrixXd quaternions(6,4*3);
+    quaternions <<
+                sort_quaternion(get_quaternion_from_euler(rpy(0),rpy(1)+M_PI*0.5,rpy(2))),  // oben
+                sort_quaternion(get_quaternion_from_euler(rpy(0),rpy(1)+M_PI*0.5,rpy(2)+M_PI*0.5)),
+                sort_quaternion(get_quaternion_from_euler(rpy(0),rpy(1)+M_PI*0.5,rpy(2)-M_PI*0.5)),
+
+                sort_quaternion(get_quaternion_from_euler(rpy(2)+M_PI*0.5,rpy(1),rpy(0))),  // links
+                sort_quaternion(get_quaternion_from_euler(rpy(2)+M_PI*0.5,rpy(1),rpy(0)+M_PI*0.5)),  // links
+                sort_quaternion(get_quaternion_from_euler(rpy(2)+M_PI*0.5,rpy(1),rpy(0)-M_PI*0.5)),  // links
+
+                sort_quaternion(get_quaternion_from_euler(rpy(2)-M_PI*0.5,rpy(1),rpy(0))),             // rechts
+                sort_quaternion(get_quaternion_from_euler(rpy(2)-M_PI*0.5,rpy(1),rpy(0)+M_PI*0.5)),  // rechts
+                sort_quaternion(get_quaternion_from_euler(rpy(2)-M_PI*0.5,rpy(1),rpy(0)-M_PI*0.5)),  // rechts
+
+                sort_quaternion(get_quaternion_from_euler(rpy(2),rpy(1),rpy(0))),                      // vorne
+                sort_quaternion(get_quaternion_from_euler(rpy(2),rpy(1),rpy(0)+M_PI*0.5)),           // vorne
+                sort_quaternion(get_quaternion_from_euler(rpy(2),rpy(1),rpy(0)-M_PI*0.5)),           // vorne
+
+
+                sort_quaternion(get_quaternion_from_euler(rpy(2),rpy(1)-M_PI,rpy(0))),              // hinten
+                sort_quaternion(get_quaternion_from_euler(rpy(2),rpy(1)-M_PI,rpy(0)+M_PI*0.5)),      // hinten
+                sort_quaternion(get_quaternion_from_euler(rpy(2),rpy(1)-M_PI,rpy(0)-M_PI*0.5)),      // hinten
+
+                sort_quaternion(get_quaternion_from_euler(rpy(0),rpy(1)-M_PI*0.5,rpy(2))),  // unten
+                sort_quaternion(get_quaternion_from_euler(rpy(0),rpy(1)-M_PI*0.5,rpy(2)+M_PI*0.5)),  // unten
+                sort_quaternion(get_quaternion_from_euler(rpy(0),rpy(1)-M_PI*0.5,rpy(2)-M_PI*0.5));  // unten
+    return quaternions;
+}
+
+MatrixXd create_pose(MatrixXd point, MatrixXd rotation){
+    MatrixXd pose(1,7); // 3 xyz, 4 quaternion
+    pose << point , rotation;
+    return pose;
+}
+MatrixXd get_pose_all_points(){
+    /*
+     * TODO: for each surface -> for each point in matrix -> construct (row?) matrix containing poses / for each surface?
+     * TODO: get point -> match w corresponding rotation(3x possible) (using create_pose)
+     * TODO: save all poses separetely / together?
+     *
+     */
+}
+
+std::vector<double> read_into_vector(std::string str){
+
+    std::istringstream ss(str);
+    std::string s;
+    std::vector<double> vec;
+    while(std::getline(ss,s,' ')){
+        double temp = std::stod(s);
+        vec.push_back(temp);
+    }
+    return vec;
+
+}
+
+
+
+void read_txt_file(std::string filename){
+    std::ifstream inFile("xml_files/doors.txt"); // CHANGE W FILENAME
+    if(inFile.is_open()){
+        std::string line;
+        int i =0;
+        while(std::getline(inFile,line)){
+            std::stringstream ss(line);
+            if(i ==0) {
+                std::getline(ss, link_name, ',');
+                link_names.push_back(link_name);
+
+                std::getline(ss, link_size, ',');
+                link_sizes.push_back(read_into_vector(link_size));
+
+                std::getline(ss, link_rpy, ',');
+                link_rotations.push_back(read_into_vector(link_rpy));
+
+                std::getline(ss, link_xyz, ',');
+                link_positions.push_back(read_into_vector(link_xyz));
+                i =1;
+            }else{
+                std::getline(ss, joint_name, ',');
+                joint_names.push_back(joint_name);
+
+                std::getline(ss, joint_rpy, ',');
+                joint_rotations.push_back(read_into_vector(joint_rpy));
+
+                std::getline(ss, joint_xyz, ',');
+                joint_positions.push_back(read_into_vector(joint_xyz));
+                i =0;
+
+            }
+        }
+    }
+    inFile.close();
 }
 
 int main() {
 
-    Vector3d joint_pos;
+    /*Vector3d joint_pos;
     joint_pos << 0.8,0,0.7;
     Vector3d object_size;
     object_size << 0.03,0.3,0.2;
@@ -201,9 +319,9 @@ int main() {
     // calc object position if object xyz not 0 0 0 -> push jointpos to get correct edge points
 
    auto get_rotobj = get_rotated_object(rotation_deg,joint_pos,object_size);
-   //std::cout << get_rotobj << std::endl;
+   std::cout << get_rotobj << std::endl;
 
-   auto s = get_quaternion_from_euler(-1.57,0,1.57);
+   auto s = get_quaternion_from_euler(1.57,0,1.57);
 
     std::cout << "Quaternionff: "  << s.coeffs() << std::endl;
     std::cout << s.w() <<" , " << s.x() <<" , "<< s.y() << " , " << s.z() << std::endl;
@@ -211,5 +329,34 @@ int main() {
    auto d = quaternion_to_euler(s);
 
    std::cout << "euler : " << d << std::endl;
+
+   MatrixXd rpy(1,3);
+   rpy << 0.0,0.0,0.5235;
+   //rpy << 0.0,0.0,0.0;
+    auto res =translate_rotations(rpy);
+    std::cout << "here am i" << std::endl;
+    std::cout << res << std::endl;
+*/
+
+
+/* RUN URDF2TXT
+    Py_Initialize();
+    FILE *fp;
+    fp = _Py_fopen("/home/serboba/PycharmProjects/urdf_extract2txt/urdf2txt.py", "r+");
+    PyRun_SimpleFile(fp, "/home/serboba/PycharmProjects/urdf_extract2txt/urdf2txt.py");
+
+    Py_Finalize();
+*/
+    read_txt_file("doors.txt");
+    Vector3d joint_pos(joint_positions[1].data());
+    Vector3d joint_rpy(joint_rotations[1].data());
+
+    Vector3d object_size(link_sizes[1].data());
+    Vector3d object_rpy (link_rotations[1].data());
+    Vector3d object_xyz (link_positions[1].data());
+    /*
+     * TODO GET ONE PROCESS COMPLETELY DONE
+     */
+
     return 0;
 }
