@@ -10,14 +10,13 @@
 #include <fstream>
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <random>
 
 #include <Eigen/Dense>
 #include <robowflex_library/util.h>
-#include <robowflex_dart/rotation_helper.h>
+#include <robowflex_dart/point_collector.h>
 
 using namespace Eigen;
-
 
 std::string link_name,link_size,link_xyz,link_rpy;
 std::string joint_name,joint_xyz,joint_rpy;
@@ -29,8 +28,8 @@ std::vector<std::vector<double>> joint_positions,joint_rotations;
 MatrixXd get_object_vertices(Vector3d joint_pos, Vector3d object_size){
     MatrixXd vertices(8,3);
     vertices <<
-             //unten
-             joint_pos.x()-object_size.x(), joint_pos.y()-object_size.y(), joint_pos.z()-object_size.z(), //links hinten    0
+            //unten
+            joint_pos.x()-object_size.x(), joint_pos.y()-object_size.y(), joint_pos.z()-object_size.z(), //links hinten    0
             joint_pos.x()+object_size.x(), joint_pos.y()-object_size.y(), joint_pos.z()-object_size.z(), //links vorne     1
             joint_pos.x()-object_size.x(), joint_pos.y()+object_size.y(), joint_pos.z()-object_size.z(), // rechts hinten  2
             joint_pos.x()+object_size.x(), joint_pos.y()+object_size.y(), joint_pos.z()-object_size.z(), // rechts vorne   3
@@ -73,7 +72,6 @@ MatrixXd get_rotated_object(std::vector<double> degrees, Vector3d joint_pos, Vec
 
 MatrixXd get_middle_points(MatrixXd vertices){
     MatrixXd edge_middle(12,3);
-
     //unten
     edge_middle <<
             (vertices.row(0)+vertices.row(1))/2, // links zu +x-achse
@@ -94,26 +92,17 @@ MatrixXd get_middle_points(MatrixXd vertices){
 }
 
 MatrixXd get_surface_equation(MatrixXd vertices){
-
     MatrixXd surface_equation(6,9);
     surface_equation <<
-            // grundflaeche
-            vertices.row(0), vertices.row(1)- vertices.row(0), vertices.row(2)- vertices.row(0),
-            // seite links
-            vertices.row(0), vertices.row(4)- vertices.row(0), vertices.row(1)- vertices.row(0),
-            //seite rechts
-            vertices.row(2), vertices.row(3)- vertices.row(2), vertices.row(6)- vertices.row(2),
-            //seite hinten
-            vertices.row(0), vertices.row(2)- vertices.row(0), vertices.row(4)- vertices.row(0),
-            //seite vorne
-            vertices.row(1), vertices.row(5)- vertices.row(1), vertices.row(3)- vertices.row(1),
-            //seite oben
-            vertices.row(4), vertices.row(5)- vertices.row(4), vertices.row(6)- vertices.row(4);
+            vertices.row(0), vertices.row(1)- vertices.row(0), vertices.row(2)- vertices.row(0), // grundflaeche
+            vertices.row(0), vertices.row(4)- vertices.row(0), vertices.row(1)- vertices.row(0), // seite links
+            vertices.row(1), vertices.row(5)- vertices.row(1), vertices.row(3)- vertices.row(1), //seite vorne
+            vertices.row(2), vertices.row(3)- vertices.row(2), vertices.row(6)- vertices.row(2), //seite rechts
+            vertices.row(0), vertices.row(2)- vertices.row(0), vertices.row(4)- vertices.row(0), //seite hinten
+            vertices.row(4), vertices.row(5)- vertices.row(4), vertices.row(6)- vertices.row(4); //seite oben
     return surface_equation;
 }
 MatrixXd get_normal_of_plane(MatrixXd surface_equation){
-    //std::cout<< surface_equation << std::endl;
-
     Map<MatrixXd> direction_vector1(surface_equation.data()+6*3,6,3);
     Map<MatrixXd> direction_vector2(surface_equation.data()+6*6,6,3);
     MatrixXd normals(6,3);
@@ -124,31 +113,15 @@ MatrixXd get_normal_of_plane(MatrixXd surface_equation){
         n_v = MatrixXd(v1.cross(v2).transpose());
         normals.row(i) << n_v;
     }
-    /*
-     * OBERFLACHE Z POSITIV GRUNDFLAECHE NEGATIV ODER UMGEKEHRT ABER BEIDE NIE GLEICH -> KORREKT WENN UM Y-180 ROTIERT?
-     */
-    if((normals.row(0).array() >=0.0).any()){
-        normals.row(0) = -normals.row(0);
-    }else{
-        normals.row(5) = -normals.row(5);
-    }
-
-    /*
-     * TODO ADD A REALISTIC VALUE TO THE NORMALS / POINTS
-     */
-    std::cout <<  normals <<std::endl;
     return normals;
 }
 
-MatrixXd adjust_vertices_w_normals(MatrixXd normals, MatrixXd vertices){
-
-}
 
 MatrixXd surface_lines(MatrixXd mid_point){
     // CALC LINES BETWEEN TWO MIDDLE POINTS - HORIZONTAL AND VERTICAL FOR EACH SURFACE, HORIZONTAL (X-AXIS) FIRST, VERTICAL (Y-AXIS) SECOND
     MatrixXd surface_lines(12,6);
 
-    surface_lines <<//  GROUND AREA TODO CHECK BUGS ??
+    surface_lines <<//  GROUND AREA correct
             mid_point.row(0), mid_point.row(3)-mid_point.row(0),
             mid_point.row(1), mid_point.row(2)-mid_point.row(1),
             //  SIDE LEFT
@@ -168,6 +141,7 @@ MatrixXd surface_lines(MatrixXd mid_point){
             mid_point.row(9), mid_point.row(10)-mid_point.row(9);
     return surface_lines;
 }
+
 
 MatrixXd generate_points_from_line(MatrixXd line, int number=3){
 
@@ -206,6 +180,34 @@ MatrixXd generate_points_from_line(MatrixXd line, int number=3){
 MatrixXd generate_points_each_surface(MatrixXd lines,int number=3){
 
     MatrixXd points_all(12,number*3);
+    std::cout <<" lines "<< std::endl;
+    std::cout <<lines<< std::endl;
+    std::cout <<" lines "<< std::endl;
+
+    // ADJUSTMENT TO GRAB WITHOUT COLLISION TODO FIX WHEN ROTATED????
+    lines(0,2) -=0.1; // GROUND Z ADJUSTMENT
+    lines(1,2) -=0.1;
+
+    lines(2,1) -=0.05; // LEFT SIDE -0..5
+    lines(3,1) -=0.05;
+
+    lines(4,0) +=0.19; // vorne
+    lines(5,0) +=0.19;
+
+    lines(6,1) +=0.05; // right side
+    lines(7,1) +=0.05;
+
+    lines(8,0) -=0.181;
+    lines(9,0) -=0.181;
+
+    lines(10,2) +=0.1;
+    lines(11,2) +=0.1;
+
+    std::cout <<" new "<< std::endl;
+    std::cout <<lines<< std::endl;
+    std::cout <<" new "<< std::endl;
+
+
     for(int i = 0; i< lines.rows() ; i++){
         points_all.row(i) =  generate_points_from_line(lines.row(i),number);
     }
@@ -222,43 +224,38 @@ MatrixXd sort_quaternion(Quaterniond q){
     return sorted_q;
 }
 
-
-
 MatrixXd translate_rotations(MatrixXd rpy){
     MatrixXd quaternions(6,4*3);
     quaternions <<
-                sort_quaternion(get_quaternion_from_euler(rpy(0),rpy(1)-M_PI*0.5,rpy(2))),  // unten
+            sort_quaternion(get_quaternion_from_euler(rpy(0),rpy(1)-M_PI*0.5,rpy(2))),  // unten
             sort_quaternion(get_quaternion_from_euler(rpy(0),rpy(1)-M_PI*0.5,rpy(2)+M_PI*0.5)),  // unten
             sort_quaternion(get_quaternion_from_euler(rpy(0),rpy(1)-M_PI*0.5,rpy(2)-M_PI*0.5)),  // unten
 
-                sort_quaternion(get_quaternion_from_euler(rpy(2)+M_PI*0.5,rpy(1),rpy(0))),  // links
-                sort_quaternion(get_quaternion_from_euler(rpy(2)+M_PI*0.5,rpy(1),rpy(0)+M_PI*0.5)),  // links
-                sort_quaternion(get_quaternion_from_euler(rpy(2)+M_PI*0.5,rpy(1),rpy(0)-M_PI*0.5)),  // links
-
-                sort_quaternion(get_quaternion_from_euler(rpy(2)-M_PI*0.5,rpy(1),rpy(0))),             // rechts
-                sort_quaternion(get_quaternion_from_euler(rpy(2)-M_PI*0.5,rpy(1),rpy(0)+M_PI*0.5)),  // rechts
-                sort_quaternion(get_quaternion_from_euler(rpy(2)-M_PI*0.5,rpy(1),rpy(0)-M_PI*0.5)),  // rechts
-
-                sort_quaternion(get_quaternion_from_euler(rpy(2),rpy(1),rpy(0))),                      // vorne
-                sort_quaternion(get_quaternion_from_euler(rpy(2),rpy(1),rpy(0)+M_PI*0.5)),           // vorne
-                sort_quaternion(get_quaternion_from_euler(rpy(2),rpy(1),rpy(0)-M_PI*0.5)),           // vorne
+            sort_quaternion(get_quaternion_from_euler(rpy(2)+M_PI*0.5,rpy(1),rpy(0))),  // links
+            sort_quaternion(get_quaternion_from_euler(rpy(2)+M_PI*0.5,rpy(1),rpy(0)+M_PI*0.5)),  // links
+            sort_quaternion(get_quaternion_from_euler(rpy(2)+M_PI*0.5,rpy(1),rpy(0)-M_PI*0.5)),  // links
 
 
-                sort_quaternion(get_quaternion_from_euler(rpy(2),rpy(1)-M_PI,rpy(0))),              // hinten
-                sort_quaternion(get_quaternion_from_euler(rpy(2),rpy(1)-M_PI,rpy(0)+M_PI*0.5)),      // hinten
-                sort_quaternion(get_quaternion_from_euler(rpy(2),rpy(1)-M_PI,rpy(0)-M_PI*0.5)),      // hinten
+            sort_quaternion(get_quaternion_from_euler(rpy(2),rpy(1)-M_PI,rpy(0))),              // hinten
+            sort_quaternion(get_quaternion_from_euler(rpy(2),rpy(1)-M_PI,rpy(0)+M_PI*0.5)),      // hinten
+            sort_quaternion(get_quaternion_from_euler(rpy(2),rpy(1)-M_PI,rpy(0)-M_PI*0.5)),      // hinten
+
+
+
+            sort_quaternion(get_quaternion_from_euler(rpy(2)-M_PI*0.5,rpy(1),rpy(0))),             // rechts
+            sort_quaternion(get_quaternion_from_euler(rpy(2)-M_PI*0.5,rpy(1),rpy(0)+M_PI*0.5)),  // rechts
+            sort_quaternion(get_quaternion_from_euler(rpy(2)-M_PI*0.5,rpy(1),rpy(0)-M_PI*0.5)),  // rechts
+
+            sort_quaternion(get_quaternion_from_euler(-rpy(2),rpy(1),rpy(0))),                      // vorne
+            sort_quaternion(get_quaternion_from_euler(-rpy(2),rpy(1),rpy(0)+M_PI*0.5)),           // vorne
+            sort_quaternion(get_quaternion_from_euler(-rpy(2),rpy(1),rpy(0)-M_PI*0.5)),           // vorne
+
 
             sort_quaternion(get_quaternion_from_euler(rpy(0),rpy(1)+M_PI*0.5,rpy(2))),  // oben
             sort_quaternion(get_quaternion_from_euler(rpy(0),rpy(1)+M_PI*0.5,rpy(2)+M_PI*0.5)),
             sort_quaternion(get_quaternion_from_euler(rpy(0),rpy(1)+M_PI*0.5,rpy(2)-M_PI*0.5));
 
     return quaternions;
-}
-
-MatrixXd create_pose(MatrixXd point, MatrixXd rotation){
-    MatrixXd pose(1,7); // 3 xyz, 4 quaternion
-    pose << point , rotation;
-    return pose;
 }
 
 std::vector<double> read_into_vector(std::string str){
@@ -273,8 +270,6 @@ std::vector<double> read_into_vector(std::string str){
     return vec;
 
 }
-
-
 
 void read_txt_file(std::string filename){
     std::ifstream inFile("xml_files/grasp.txt"); // CHANGE W FILENAME
@@ -317,18 +312,14 @@ MatrixXd get_poses(MatrixXd quaternions, MatrixXd points){
     /*
      *
      */ // last 4 cols always quaternions len(row)-4 /3 = number of points in matrix row/calculated for this surface line
-    MatrixXd pose_matrix(36, points.cols()+4);// 12 surface lines with 3 possible rots each 36 - rows: p1 p2 p3 q1 / p1.. q2 / p1.. q3/ then next point
-std::cout << quaternions << std::endl;
+    MatrixXd pose_matrix(points.rows()*3, points.cols()+4);// 12 surface lines with 3 possible rots each 36 - rows: p1 p2 p3 q1 / p1.. q2 / p1.. q3/ then next point
     for(int i =0 ; i< 12; i++){
-        MatrixXd q_temp = quaternions.row(floor(i/2));
-        MatrixXd q1 = q_temp.block(0,0,1,4);
-        MatrixXd q2 = q_temp.block(0,4,1,4);
-        MatrixXd q3 = q_temp.block(0,8,1,4);
-        pose_matrix.row(3*i)   << points.row(i),q1;
-        pose_matrix.row(3*i+1) << points.row(i),q2;
-        pose_matrix.row(3*i+2) << points.row(i),q3;
+        int k = i*3;
+        for(int j = 0; j<12 ; j+=4){
+            pose_matrix.row(k) << points.row(i) , quaternions.block(floor(i/2),j,1,4);
+            k+=1;
+        }
     }
-    std::cout << pose_matrix << std::endl;
     /*
      *  POSE MATRIX , EACH POINT HAS 3 POSSIBLE QUATERNIONS, EACH SURFACE HAS 2 WAYS TO GET THE POINTS VERTICAL / HORIZONTAL
      *  POSE1 = SURFACE1_POINTS1_QUATERNION1
@@ -348,36 +339,49 @@ std::cout << quaternions << std::endl;
     return pose_matrix;
 }
 
-MatrixXd get_pose_every_object(){
-    /*
-     * TODO: ?? EVERY OBJECT SEPERATED BY ? MAP?? OR CALLED WITH LINK NAME?
-     */
+MatrixXd sort_pose_matrix(MatrixXd pose_matrix){
+    int points = (pose_matrix.cols()-4)/3; // 3-p1xyz 3-p2xyz 3-p3 xyz +quat 4
+    MatrixXd new_matrix(pose_matrix.rows()*points,7);
+    for(int i = 0; i<pose_matrix.rows(); i++) {
+        int k = i * points;
+        for (int j = 0; j < points * 3; j = j + 3) {
+            new_matrix.row(k) << pose_matrix.block(i, j, 1, 3), pose_matrix.block(i, (points * 3), 1, 4);
+            k += 1;
+        }
+    }
+    return new_matrix;
 }
 
 MatrixXd get_pose_all_points(Vector3d joint_pos, Vector3d object_size){
 
     auto vertices = get_rotated_object(joint_rotations[0], joint_pos,object_size);
-    std::cout<< vertices << std::endl;
-    auto surface_equation = get_surface_equation(vertices);
-    auto normals = get_normal_of_plane(surface_equation);
-    // TODO ADJUST POINTS WITH NORMALS
-    auto middle_points = get_middle_points(vertices);
-    auto lines = surface_lines(middle_points);
-    auto points = generate_points_each_surface(lines,1);
+    //auto surface_equation = get_surface_equation(vertices);
+    //auto normals = get_normal_of_plane(surface_equation);
+    // TODO ADJUST POINTS WITH NORMALS now only working with quick fix
 
+    auto points = generate_points_each_surface(surface_lines(get_middle_points(vertices)),1);
 
-    //MatrixXd joint_rpy_matrix = MatrixXd::Map(joint_rotations[0].data(),1, joint_rotations[0].size());
     MatrixXd joint_rpy_matrix(1,3);
-
-    joint_rpy_matrix << 1.57,0,0;
+    joint_rpy_matrix << 0,0,0.00;
     std::cout << joint_rpy_matrix << std::endl;
+
     auto quaternions = translate_rotations(joint_rpy_matrix); // calculate corresponding quaternions for pose
 
-    auto pose = get_poses(quaternions,points);
+    auto result = sort_pose_matrix(get_poses(quaternions,points));
+    return result;
+}
+MatrixXd get_random_pose(){
+    auto pose_matrix = get_pose_matrix();
+    std::random_device rd;     // only used once to initialise (seed) engine
+    std::mt19937 rng(rd());    // random-number engine used (Mersenne-Twister in this case)
+    std::uniform_int_distribution<int> uni(0,pose_matrix.rows()-1); // guaranteed unbiased
+    auto random_integer = uni(rng);
+    std::cout << "my random int : " << random_integer << std::endl;
+    return pose_matrix.row(random_integer);
 
 }
 
-int main() {
+MatrixXd get_pose_matrix() {
 // RUN URDF2TXT
 /*
     Py_Initialize();
@@ -393,87 +397,10 @@ int main() {
     Vector3d object_size(link_sizes[0].data());
     Vector3d object_rpy (link_rotations[0].data());
     Vector3d object_xyz (link_positions[0].data());
-    get_pose_all_points(joint_pos,object_size);
+   auto pose_matrix =  get_pose_all_points(joint_pos,object_size);
 
     /*
-     * TODO ADJUST JOINT POS IF OBJECT XYZ NOT 0 0 0
+     * TODO ADJUST JOINT POS IF OBJECT XYZ NOT 0 0 0 // ROTATION ?
      */
-    return 0;
+    return pose_matrix;
 }
-/*Vector3d joint_pos;
-  joint_pos << 0.8,0,0.7;
-  Vector3d object_size;
-  object_size << 0.03,0.3,0.2;
-
-  //  std::cout << object_size(1) << std::endl;
-  auto vertices = get_object_vertices(joint_pos,object_size);
-  auto surface_equation = get_surface_equation(vertices);
-  std::cout << surface_equation << std::endl;
-
-  auto middle_po = get_middle_points(vertices);
-  auto lines = surface_lines(middle_po);
-
-  auto points = generate_points_each_surface(lines,5);
-
- // std::cout << points << std::endl;
-
-  std::vector<double> rotation_deg(3);
-  rotation_deg[0] = 1.57;
-  rotation_deg[1] = 0;
-  rotation_deg[2] = 0;
-  Vector3d point;
-  point << 0.77, -0.3, 0.9;
-  // RPY GIVEN X Y Z ? -> MUST BE YAW Z  PITCH Y  ROLL X
-
- auto get_rot = get_rotated_vertex(rotation_deg,point,joint_pos);
-// std::cout << get_rot << std::endl;
-  // calc object position if object xyz not 0 0 0 -> push jointpos to get correct edge points
-
- auto get_rotobj = get_rotated_object(rotation_deg,joint_pos,object_size);
- std::cout << get_rotobj << std::endl;
-
- auto s = get_quaternion_from_euler(1.57,0,1.57);
-
-  std::cout << "Quaternionff: "  << s.coeffs() << std::endl;
-  std::cout << s.w() <<" , " << s.x() <<" , "<< s.y() << " , " << s.z() << std::endl;
-
- auto d = quaternion_to_euler(s);
-
- std::cout << "euler : " << d << std::endl;
-
- MatrixXd rpy(1,3);
- rpy << 0.0,0.0,0.5235;
- //rpy << 0.0,0.0,0.0;
-  auto res =translate_rotations(rpy);
-  std::cout << "here am i" << std::endl;
-  std::cout << res << std::endl;
-*/
-
-
-// std::cout << points << std::endl;
-/*
-    std::vector<double> rotation_deg(3);
-    rotation_deg[0] = 1.57;
-    rotation_deg[1] = 0;
-    rotation_deg[2] = 0;
-    Vector3d point;
-    point << 0.77, -0.3, 0.9;
-    // RPY GIVEN X Y Z ? -> MUST BE YAW Z  PITCH Y  ROLL X
-*/
-/*
-    auto s = get_quaternion_from_euler(1.57,0,1.57);
-
-    std::cout << "Quaternionff: "  << s.coeffs() << std::endl;
-    std::cout << s.w() <<" , " << s.x() <<" , "<< s.y() << " , " << s.z() << std::endl;
-
-    auto d = quaternion_to_euler(s);
-
-    std::cout << "euler : " << d << std::endl;
-
-    MatrixXd rpy(1,3);
-    rpy << 0.0,0.0,0.5235;
-    //rpy << 0.0,0.0,0.0;
-   // auto res =translate_rotations(rpy);
-    std::cout << "here am i" << std::endl;
-    //std::cout << res << std::endl;
-*/
