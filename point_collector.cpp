@@ -103,11 +103,10 @@ MatrixXd get_surface_equation(MatrixXd vertices){
     return surface_equation;
 }
 
-
 MatrixXd adjust_normals(MatrixXd normals){
     for(int i = 0; i < normals.rows() ; i++){
         for(int j = 0; j< normals.cols() ; j++){
-            if(abs(normals(i,j)) < 0.00001){
+            if(abs(normals(i,j)) < 0.001){
                 normals(i,j) = 0.0;
                 continue;
             }
@@ -122,22 +121,24 @@ MatrixXd adjust_normals(MatrixXd normals){
 }
 
 
-
 MatrixXd get_normal_of_plane(MatrixXd surface_equation){
     Map<MatrixXd> direction_vector1(surface_equation.data()+6*3,6,3);
     Map<MatrixXd> direction_vector2(surface_equation.data()+6*6,6,3);
     MatrixXd normals(6,3);
     for(int i =0; i < direction_vector1.rows() ; i++){
-        auto v1 = Vector3d(direction_vector2.row(i));
-        auto v2 = Vector3d(direction_vector1.row(i));
+        Vector3d v1 = Vector3d(direction_vector2.row(i));
+        Vector3d v2 = Vector3d(direction_vector1.row(i));
         MatrixXd n_v (1,3);
         n_v = MatrixXd(v1.cross(v2).transpose());
         if(i== 5){
             n_v *= -1;
-        } // top surface normal
+        } // top surface normal always the opposite
 
         normals.row(i) << n_v;
     }
+
+    std::cout << "NORMALS BEFORE ADJUST" << std::endl;
+    std::cout << normals << std::endl;
     return adjust_normals(normals);
 }
 
@@ -241,9 +242,9 @@ MatrixXd translate_rotations(MatrixXd rpy){
             sort_quaternion(get_quaternion_from_euler(rpy(2)-M_PI*0.5,rpy(1),rpy(0)+M_PI*0.5)),  // rechts
             sort_quaternion(get_quaternion_from_euler(rpy(2)-M_PI*0.5,rpy(1),rpy(0)-M_PI*0.5)),  // rechts
 
-            sort_quaternion(get_quaternion_from_euler(-rpy(2),rpy(1),rpy(0))),                      // vorne
-            sort_quaternion(get_quaternion_from_euler(-rpy(2),rpy(1),rpy(0)+M_PI*0.5)),           // vorne
-            sort_quaternion(get_quaternion_from_euler(-rpy(2),rpy(1),rpy(0)-M_PI*0.5)),           // vorne
+            sort_quaternion(get_quaternion_from_euler(rpy(2),rpy(1),rpy(0))),                      // vorne
+            sort_quaternion(get_quaternion_from_euler(rpy(2),rpy(1),rpy(0)+M_PI*0.5)),           // vorne
+            sort_quaternion(get_quaternion_from_euler(rpy(2),rpy(1),rpy(0)-M_PI*0.5)),           // vorne
 
 
             sort_quaternion(get_quaternion_from_euler(rpy(0),rpy(1)+M_PI*0.5,rpy(2))),  // oben
@@ -322,7 +323,7 @@ void read_urdf_file(std::string filename){
     inFile.close();
 }
 
-MatrixXd get_poses(MatrixXd quaternions, MatrixXd points){
+MatrixXd get_poses(MatrixXd &quaternions, MatrixXd &points){
     /*
      *
      */ // last 4 cols always quaternions len(row)-4 /3 = number of points in matrix row/calculated for this surface line
@@ -364,49 +365,38 @@ MatrixXd sort_pose_matrix(MatrixXd pose_matrix){
     return new_matrix;
 }
 
-MatrixXd identify_points_surface(int rows, int cols, int point_pos, MatrixXd normals){
+MatrixXd identify_points_surface(int rows, int point_pos, MatrixXd &normals){
     // minimum matrix size 36*n - 7 (12 surface lines for 6 surfaces, 3 quaternions for each point on the same surface)
     int number_of_points = rows/36;
     // each surface needs
     int surface_points_it = number_of_points*6;
     int mod = point_pos / surface_points_it;
-    auto normal_vec = normals.row(mod);
 
-    /*
-    std::cout<< "number of points" << std::endl;
-    std::cout<< number_of_points << std::endl;
-    std::cout<< surface_points_it << std::endl;
-    std::cout<< mod << std::endl;
-    std::cout<< "normals" << std::endl;
-    std::cout<< normal_vec << std::endl;
-    std::cout<< "normals" << std::endl;
-    */
-     return normal_vec;
+    return normals.row(mod);
 }
 
 
-std::vector<MatrixXd> get_pose_all_points(Vector3d joint_pos, Vector3d joint_rpy, Vector3d object_size){
+std::vector<MatrixXd> get_pose_all_points(Vector3d &joint_pos, Vector3d &joint_rpy, Vector3d &object_size){
 
     std::vector<double> degr;
     degr.resize(joint_rpy.size());
     VectorXd::Map(&degr[0],joint_rpy.size()) = joint_rpy;
-    auto vertices = get_rotated_object(degr, joint_pos,object_size);
-    auto surface_equation = get_surface_equation(vertices);
-    auto normals = get_normal_of_plane(surface_equation);
+    MatrixXd vertices = get_rotated_object(degr, joint_pos,object_size);
+    MatrixXd surface_equation = get_surface_equation(vertices);
+    MatrixXd normals = get_normal_of_plane(surface_equation);
 
     std::cout << "normals " << std::endl;
     std::cout << normals  << std::endl;
     std::cout << "normals " << std::endl;
-    auto points = generate_points_each_surface(surface_lines(get_middle_points(vertices)),1);
-
+    MatrixXd points = generate_points_each_surface(surface_lines(get_middle_points(vertices)),1);
 
     MatrixXd joint_rpy_matrix(1,3);
     joint_rpy_matrix << joint_rpy[0,0],joint_rpy[0,1],joint_rpy[0,2];
     std::cout << joint_rpy_matrix << std::endl;
 
-    auto quaternions = translate_rotations(joint_rpy_matrix); // calculate corresponding quaternions for pose
+    MatrixXd quaternions = translate_rotations(joint_rpy_matrix); // calculate corresponding quaternions for pose
 
-    auto pose_matrix = sort_pose_matrix(get_poses(quaternions,points));
+    MatrixXd pose_matrix = sort_pose_matrix(get_poses(quaternions,points));
     std::cout << "pose_matrix" << std::endl;
     std::cout << pose_matrix << std::endl;
     std::cout << "pose_matrix" << std::endl;
@@ -414,9 +404,9 @@ std::vector<MatrixXd> get_pose_all_points(Vector3d joint_pos, Vector3d joint_rpy
     std::random_device rd;     // only used once to initialise (seed) engine
     std::mt19937 rng(rd());    // random-number engine used (Mersenne-Twister in this case)
     std::uniform_int_distribution<int> uni(0,pose_matrix.rows()-1); // guaranteed unbiased
-    auto random_integer = uni(rng);
+    int random_integer = uni(rng);
 
-    auto normal_vec = identify_points_surface(pose_matrix.rows(),pose_matrix.cols(),random_integer, normals);
+    MatrixXd normal_vec = identify_points_surface(pose_matrix.rows(),random_integer, normals);
 
     std::vector<MatrixXd> res;
     res.push_back(pose_matrix.row(random_integer));
@@ -426,56 +416,59 @@ std::vector<MatrixXd> get_pose_all_points(Vector3d joint_pos, Vector3d joint_rpy
 }
 
 MatrixXd get_random_pose(Vector3d joint_pos,Vector3d joint_rpy,Vector3d object_size){
-    auto pose_matrix_norm = get_pose_matrix(joint_pos , joint_rpy, object_size);
-    auto pose_matrix = pose_matrix_norm.front();
+    std::vector<MatrixXd> pose_matrix_norm = get_pose_matrix(joint_pos , joint_rpy, object_size);
+    MatrixXd pose_matrix = pose_matrix_norm.front();
     std::cout<< pose_matrix << std::endl;
-
    // std::cout << "my random int : " << random_integer << std::endl;
 
     MatrixXd pose_and_normal(1,10);
+    pose_and_normal << pose_matrix, pose_matrix_norm[1] ;
+    /*
     auto normassss = pose_matrix_norm[1];
     std::cout << normassss << std::endl;
-    pose_and_normal << pose_matrix, pose_matrix_norm[1] ;
     std::cout << "POSE AND NORMAALLLL" << std::endl;
     std::cout << pose_and_normal << std::endl;
-    return pose_and_normal;
+    */
+     return pose_and_normal;
 
 }
 
 std::vector<std::pair<std::string, MatrixXd>> get_pose_object (int object_no){
-    read_srdf_file("doors_srdf.txt");
-    read_urdf_file("doors.txt");
+    read_srdf_file("cube_scene_srdf.txt");
+    read_urdf_file("cube_scene.txt");
     Vector3d joint_pos(joint_positions[object_no].data());
     Vector3d joint_rpy(joint_rotations[object_no].data());
 
     Vector3d object_size(link_sizes[object_no].data());
     Vector3d object_rpy (link_rotations[object_no].data());
     Vector3d object_xyz (link_positions[object_no].data());
-std::cout <<   "tyooooooo  " << group_names[object_no]<< std::endl;
-    std::string object_gr_name = group_names[object_no].data();
+    std::string object_gr_name = group_names[0].data();
 
-    auto random_pose = get_random_pose(joint_pos,joint_rpy,object_size);
+    MatrixXd random_pose = get_random_pose(joint_pos,joint_rpy,object_size);
 
     std::vector<std::pair<std::string,MatrixXd>> result;
     result.push_back(std::make_pair(object_gr_name,random_pose));
     return result;
-    // return <group_name(number), pose_matrix>
 }
 
 std::vector<MatrixXd> get_pose_matrix(Vector3d joint_pos,Vector3d joint_rpy,Vector3d object_size) {
-// RUN URDF2TXT
-/*
-    Py_Initialize();
-    FILE *fp;
-    fp = _Py_fopen("/home/serboba/PycharmProjects/urdf_extract2txt/urdf2txt.py", "r+");
-    PyRun_SimpleFile(fp, "/home/serboba/PycharmProjects/urdf_extract2txt/urdf2txt.py");
-    Py_Finalize();
-*/
 
-    auto pose_matrix =  get_pose_all_points(joint_pos,joint_rpy,object_size);
+
+    std::vector<MatrixXd> pose_matrix =  get_pose_all_points(joint_pos,joint_rpy,object_size);
 
     /*
      * TODO ADJUST JOINT POS IF OBJECT XYZ NOT 0 0 0 // ROTATION ? JOINT ROT POS CORRECT MISSING OBJECT/LINK XYZ RPY
      */
     return pose_matrix;
+}
+
+void create_txt_from_urdf(){
+    // RUN URDF2TXT
+
+    Py_Initialize();
+    FILE *fp;
+    fp = _Py_fopen("/home/serboba/PycharmProjects/urdf_extract2txt/urdf2txt.py", "r+");
+    PyRun_SimpleFile(fp, "/home/serboba/PycharmProjects/urdf_extract2txt/urdf2txt.py");
+    Py_Finalize();
+
 }
