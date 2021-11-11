@@ -80,6 +80,7 @@ int main(int argc, char **argv)
 
 
 
+
     /* NEVER CHANGE THIS ROBOT LOADING STRUCTURE UNTIL HERE !!!! */
     darts::Window window(world);
 
@@ -87,24 +88,17 @@ int main(int argc, char **argv)
     const auto &evaluate_pos = [&](Eigen::MatrixXd &pose){
         darts::PlanBuilder builder(world);
         builder.addGroup(fetch_name, GROUP_X);
-
         bool found_pose = false;
-
+        //int max_iter = 20;
         Eigen::MatrixXd pose_m = pose.block(0, 0, 1, 7);
         Eigen::MatrixXd normal_v = pose.block(0, 7, 1, 3);
-        std::cout << "nodoor pos" << std::endl;
-        std::cout << pose << std::endl;
-        std::cout << normal_v << std::endl;
-
-        int max_iter = 20;
         Eigen::MatrixXd position = pose_m.block(0, 0, 1, 3);
         Eigen::MatrixXd quaternion = pose_m.block(0, 3, 1, 4);
         double l = 0.0;
-        //pose_matrix.block(i, j, 1, 3)
 
-        while(!found_pose && l<=0.20){
+        while(!found_pose && l<=0.30){ // HOW TO SET L VALUE??
             l = l+ 0.01;
-            std::cout << "L RATIO " << l << std::endl;
+        //    std::cout << "L RATIO" << l << std::endl; // adjust normals by l
             for(int i = 0; i < 3 ;i++){
                 if(normal_v(0,i) == 0.0)
                     continue;
@@ -153,11 +147,11 @@ int main(int argc, char **argv)
             ompl::base::ScopedState<> goal_state(builder.space);
             builder.ss->getSpaceInformation().get()->getStateSpace()->copyFromReals(goal_state.get(),v2);
 
-            std::cout << "SATISFIES BOUNDS ?? " << builder.info->satisfiesBounds(goal_state.get()) << std::endl;
-            std::cout << "IS VALID?S ?? " << builder.info->isValid(goal_state.get()) << std::endl;
+        //    std::cout << "SATISFIES BOUNDS ?? " << builder.info->satisfiesBounds(goal_state.get()) << std::endl;
+        //    std::cout << "IS VALID?S ?? " << builder.info->isValid(goal_state.get()) << std::endl;
 
-            if (builder.info->satisfiesBounds(goal_state.get()) && builder.info->isValid(goal_state.get()))
-     //       if ( builder.info->isValid(goal_state.get()))
+        //    if (builder.info->satisfiesBounds(goal_state.get()) && builder.info->isValid(goal_state.get()))
+            if ( builder.info->isValid(goal_state.get()))
             {
                 found_pose=true;
                 OMPL_DEBUG("TRUE STATE VALID");
@@ -166,11 +160,9 @@ int main(int argc, char **argv)
                 pose = result;
                 OMPL_DEBUG("NEW POSE VECTOR");
                 std::cout << pose << std::endl;
-                goal->stopSampling();
                 //builder.setStartConfiguration(config);
             }else{
                 OMPL_DEBUG("FALSE INVALID STATE");
-                goal->stopSampling();
                 //builder.setStartConfiguration(config);
             }
 
@@ -179,208 +171,185 @@ int main(int argc, char **argv)
     };
 
 
-    const auto get_pose = [&](MatrixXd &pose_m){
-        std::vector<std::pair<std::string,Eigen::MatrixXd>> pose_object = get_pose_object(2);
+    const auto get_pose = [&](MatrixXd &pose_m, int object_no){
+        std::vector<std::pair<std::string,Eigen::MatrixXd>> pose_object = get_pose_object(object_no);
         auto joint_group_name = pose_object.begin()->first;
         MatrixXd pose_matrix = pose_object.begin()->second;
 
-        std::cout << "POSE Matrix BEFORE : " << pose_matrix << std::endl;
         MatrixXd temp2;
         bool guard = false;
-        while(!guard){
-
+        while(!guard){ // IF WE COULD FIND A NEW POSE VALID POSE -> GUARD TRUE (POSE WRITTEN IN TEMP2)
             Eigen::Map<MatrixXd> temp(pose_matrix.data(),1,7);
-            std::cout << "TEMP11 : " << temp << std::endl;
-            std::cout << "POSE : " << pose_matrix << std::endl;
-
-            pose_matrix = get_pose_object(2).begin()->second;
+            //std::cout << "POSE : " << pose_matrix << std::endl;
+            pose_matrix = get_pose_object(object_no).begin()->second;
             evaluate_pos(pose_matrix);
-
-            std::cout << "TEMP12 : " << temp << std::endl;
-
-            std::cout << "POSE MMM : " << pose_matrix << std::endl;
-
             temp2 = pose_matrix.block(0,0,1,7);
-
-            std::cout << "TEMP 22222 : " << temp2 << std::endl;
-
-            if(temp.isApprox(temp2) == 0)
+            if(temp.isApprox(temp2) == 0) // IF EQUAL WE DIDNT FIND VALID POSE
                 guard=true;
-            OMPL_DEBUG("STOP");
         }
-        std::cout << "POSE MATTTT : " << pose_matrix.rows() << pose_matrix.cols()  << std::endl;
         pose_m = temp2;
     };
 
 
-    const auto &plan_to_grasp = [&]() {
-        darts::PlanBuilder builder(world);
-        builder.addGroup(fetch_name, GROUP_X);
-
-        builder.setStartConfigurationFromWorld();
-
-        builder.initialize();
-
-        ompl::base::PlannerStatus solved;
-
-        darts::TSR::Specification goal_spec2;
-        goal_spec2.setFrame(fetch_name, "wrist_roll_link", "moving_link");
+    const auto &plan_to_grasp = [&](int object_no) {
         MatrixXd pose_m(1,10);
         bool flag = false;
-
+        int counter = 0; // count tries
         while(!flag){
-        get_pose(pose_m);
-        while(pose_m.cols()>8){
-            get_pose(pose_m);
-        }
+            get_pose(pose_m, object_no);
+            counter = 0;
+            while(pose_m.cols()>8 && counter <=3){
+                get_pose(pose_m, object_no);
+                counter++;
+            }
 
-        goal_spec2.setPose(pose_m);
-        goal_spec2.print(std::cout);
-        auto goal_tsr2 = std::make_shared<darts::TSR>(world, goal_spec2);
-        auto goal = builder.getGoalTSR(goal_tsr2);
+            /* TODO SECURE STARTING POSE FROM EARLIER ROTATION */
+            darts::PlanBuilder builder(world);
+            builder.addGroup(fetch_name, GROUP_X);
+            builder.setStartConfigurationFromWorld();
+            builder.initialize();
 
-        goal->setThreshold(0.0001);
-        builder.setGoal(goal);
+            ompl::base::PlannerStatus solved;
+            darts::TSR::Specification goal_spec;
+            goal_spec.setFrame(fetch_name, "wrist_roll_link", "moving_link");
 
-        auto rrt = std::make_shared<ompl::geometric::RRTConnect>(builder.info,true);
-        //rrt->setRange(0.01);
-        builder.ss->setPlanner(rrt);
-        builder.setup();
+            goal_spec.setPose(pose_m);
+            //goal_spec.print(std::cout);
+            auto goal_tsr = std::make_shared<darts::TSR>(world, goal_spec);
+            auto goal = builder.getGoalTSR(goal_tsr);
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+            goal->setThreshold(0.0001);
+            builder.setGoal(goal);
 
-        goal->startSampling();
-        solved = builder.ss->solve(10.0);
-        goal->stopSampling();
+            auto rrt = std::make_shared<ompl::geometric::RRTConnect>(builder.info,true);
+            //rrt->setRange(0.01);
+            builder.ss->setPlanner(rrt);
+            builder.setup();
 
-        if (solved){
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
+            goal->startSampling();
+            solved = builder.ss->solve(10.0);
+            goal->stopSampling();
+
+            if (solved){
                 RBX_INFO("Found solution!");
                 window.animatePath(builder, builder.getSolutionPath());
                 flag = true;
-        }else{
-            RBX_WARN("No solution found");
-        }
-
-        }
-    };
-
-
-/*
-    const auto &plan_to_grasp2 = [&]() {
-        darts::PlanBuilder builder(world);
-        builder.addGroup(fetch_name, GROUP_X);
-
-        builder.setStartConfigurationFromWorld();
-
-        builder.initialize();
-
-        darts::TSR::Specification goal_spec2;
-        goal_spec2.setFrame(fetch_name, "wrist_roll_link", "moving_link");
-        goal_spec2.setPose( 0.4,0.65,0.75,
-                            0.7071,0,0.7071,0);
-        goal_spec2.print(std::cout);
-
-        auto goal_tsr2 = std::make_shared<darts::TSR>(world, goal_spec2);
-        auto goal = builder.getGoalTSR(goal_tsr2);
-        goal->setThreshold(0.01);
-        builder.setGoal(goal);
-
-        //goal->print();
-
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-
-        auto rrt = std::make_shared<ompl::geometric::RRTConnect>(builder.info,true);
-        //rrt->setRange(0.01);
-        builder.ss->setPlanner(rrt);
-        builder.setup();
-
-
-        goal->startSampling();
-        ompl::base::PlannerStatus solved = builder.ss->solve(10.0);
-        goal->stopSampling();
-
-        if (solved){
-            RBX_INFO("Found solution!");
-            window.animatePath(builder, builder.getSolutionPath());
-        }else{
-            RBX_WARN("No solution found");
+            }else{
+                RBX_WARN("No solution found");
+            }
         }
     };
 
-*/
+    const auto &handle_axis = [&](int axis, double value,Eigen::Vector3d &pos){
+        if (axis ==0)
+            pos.x()+= value;
+        else if(axis==1)
+            pos.y()+= value;
+        else if(axis==2)
+            pos.z() += value;
+        else
+            OMPL_INFORM("INVALID AXIS");
+    };
 
-/*
-    const auto &plan_to_pick = [&]() {
+    const auto &plan_to_move_xyz_axis = [&](std::string group_name, std::string link_name, std::string joint_name, bool &flag, int axis, double value) {
         darts::PlanBuilder builder(world);
+        robowflex::darts::WorldPtr world_temp = builder.world;
         builder.addGroup(fetch_name, GROUP_X);
-        builder.addGroup(door_dart->getName(), "doorgr1");
+        builder.addGroup(door_name, group_name);
         builder.setStartConfigurationFromWorld();
         auto idk = builder.getStartConfiguration();
 
+        darts::TSR::Specification pos_spec;
+        pos_spec.setFrame(fetch_name,"wrist_roll_link", "moving_link");
+        pos_spec.setPoseFromWorld(world);
+
+        auto rotation = pos_spec.getRotation();
+        Eigen::Vector3d position = pos_spec.getPosition();
 
 
         darts::TSR::Specification con_spec;
-        con_spec.setBase(door_dart->getName(),"door1");
+        con_spec.setBase(door_name, link_name);
         con_spec.setTarget(fetch_name,"wrist_roll_link");
         con_spec.setPoseFromWorld(world);
-
-        auto rotation = con_spec.getRotation();
 
         auto cons_tsr = std::make_shared<darts::TSR>(world,con_spec);
         builder.addConstraint(cons_tsr);
 
         builder.initialize();
 
-        darts::TSR::Specification goal_spec2;  // IF GOAL NOT AS CONFIG
-        goal_spec2.setFrame(fetch_name,"wrist_roll_link","moving_link");
-        goal_spec2.setPosition( 0.6  ,          0    ,      1.3);
-        goal_spec2.setRotation(rotation);
+        darts::TSR::Specification goal_spec;
+        goal_spec.setFrame(fetch_name,"wrist_roll_link","moving_link");
+        handle_axis(axis,value,position);
+        goal_spec.setPosition(position);
+        goal_spec.setRotation(rotation);
 
-        goal_spec2.print(std::cout);
-        auto goal_tsr2 = std::make_shared<darts::TSR>(world, goal_spec2);
-
-        auto goal = builder.getGoalTSR(goal_tsr2);
-
-        goal->setThreshold(0.10);
-
+        //std::cout<< "GOAL" <<    std::endl;
+        //goal_spec.print(std::cout);
+        auto goal_tsr = std::make_shared<darts::TSR>(world, goal_spec);
+        auto goal = builder.getGoalTSR(goal_tsr);
+        goal->setThreshold(0.01); // maybe find better threshold?
         builder.setGoal(goal);
 
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+        //std::this_thread::sleep_for(std::chrono::milliseconds(5000));
         auto rrt = std::make_shared<ompl::geometric::KPIECE1>(builder.info);
-        //rrt->setRange(0.01);
+        //  rrt->setRange(0.10);
         builder.ss->setPlanner(rrt);
-
         builder.setup();
 
         goal->startSampling();
         ompl::base::PlannerStatus solved = builder.ss->solve(60.0);
         goal->stopSampling();
 
-        if (solved)
-        {
-           // while(true){
-            RBX_INFO("Found solution!");
+        OMPL_DEBUG("HAVE EXACT SOLUTION PATH: ");
+        std::cout << builder.ss->haveExactSolutionPath() << std::endl;
 
-                window.animatePath(builder, builder.getSolutionPath());
-            //}
+        if (solved == ompl::base::PlannerStatus::EXACT_SOLUTION )
+        {
+            RBX_INFO("Found solution!");
+            window.animatePath(builder, builder.getSolutionPath());
+            flag = true;
         }
-        else
+        else{
             RBX_WARN("No solution found");
+            door_dart->setJoint(joint_name,0.0);
+        }
     };
-*/
+
 
     window.run([&] {
-      //  create_txt_from_urdf();
+       // create_txt_from_urdf();
         std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-        plan_to_grasp();
-      //  plan_to_grasp2();
+        bool flag = false;
+
         std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-   //     plan_to_pick();
-    });
+        double threshold_multiplier = 1.0;
+
+        while(!flag){
+            plan_to_grasp(2); // door1
+            plan_to_move_xyz_axis("doorgr1","door1", "door_joint1",flag,0,0.2);
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+        flag=false;
+
+        while(!flag) {
+            plan_to_grasp(3); // door2
+            plan_to_move_xyz_axis("doorgr2", "door2","door_joint2", flag, 0, 0.2);
+        }
+            std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+
+        flag = false;
+        while(!flag) {
+            plan_to_grasp(1); // cube
+            plan_to_move_xyz_axis("cube_gr", "cube1","cube_joint", flag, 1, -0.75);
+       }
+
+        });
 
     return 0;
 }
+
 
 

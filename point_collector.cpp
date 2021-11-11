@@ -137,8 +137,8 @@ MatrixXd get_normal_of_plane(MatrixXd surface_equation){
         normals.row(i) << n_v;
     }
 
-    std::cout << "NORMALS BEFORE ADJUST" << std::endl;
-    std::cout << normals << std::endl;
+    //std::cout << "NORMALS BEFORE ADJUST" << std::endl;
+    //std::cout << normals << std::endl;
     return adjust_normals(normals);
 }
 
@@ -397,9 +397,7 @@ std::vector<MatrixXd> get_pose_all_points(Vector3d &joint_pos, Vector3d &joint_r
     MatrixXd quaternions = translate_rotations(joint_rpy_matrix); // calculate corresponding quaternions for pose
 
     MatrixXd pose_matrix = sort_pose_matrix(get_poses(quaternions,points));
-    std::cout << "pose_matrix" << std::endl;
-    std::cout << pose_matrix << std::endl;
-    std::cout << "pose_matrix" << std::endl;
+    //std::cout << pose_matrix << std::endl;
 
     std::random_device rd;     // only used once to initialise (seed) engine
     std::mt19937 rng(rd());    // random-number engine used (Mersenne-Twister in this case)
@@ -418,8 +416,8 @@ std::vector<MatrixXd> get_pose_all_points(Vector3d &joint_pos, Vector3d &joint_r
 MatrixXd get_random_pose(Vector3d joint_pos,Vector3d joint_rpy,Vector3d object_size){
     std::vector<MatrixXd> pose_matrix_norm = get_pose_matrix(joint_pos , joint_rpy, object_size);
     MatrixXd pose_matrix = pose_matrix_norm.front();
-    std::cout<< pose_matrix << std::endl;
-   // std::cout << "my random int : " << random_integer << std::endl;
+    //std::cout<< pose_matrix << std::endl;
+    // std::cout << "my random int : " << random_integer << std::endl;
 
     MatrixXd pose_and_normal(1,10);
     pose_and_normal << pose_matrix, pose_matrix_norm[1] ;
@@ -453,9 +451,7 @@ std::vector<std::pair<std::string, MatrixXd>> get_pose_object (int object_no){
 
 std::vector<MatrixXd> get_pose_matrix(Vector3d joint_pos,Vector3d joint_rpy,Vector3d object_size) {
 
-
     std::vector<MatrixXd> pose_matrix =  get_pose_all_points(joint_pos,joint_rpy,object_size);
-
     /*
      * TODO ADJUST JOINT POS IF OBJECT XYZ NOT 0 0 0 // ROTATION ? JOINT ROT POS CORRECT MISSING OBJECT/LINK XYZ RPY
      */

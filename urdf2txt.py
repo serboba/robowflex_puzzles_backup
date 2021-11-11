@@ -27,7 +27,6 @@ def translate_into_txt(target_dir):
         f_new = f.split('.')[0]
         f_new = f_new+'.txt'
         print(f_new)
-        print(f + "ASD")
         txt_file = []
         root = ET.parse(target_dir+'/'+f).getroot()
         if(f.endswith('_srdf.xml')):
@@ -44,7 +43,7 @@ def parse_urdf_file(root):
     links = []
     for link in root.findall('link'):
         link_name = link.get('name')
-        if (link.find('visual') != None):  # if object different type ?
+        if (link.find('visual') != None and link.find('visual/geometry/mesh') == None):  # if object different type ?
             link_size = link.find('visual/geometry/box').get('size')
             link_xyz = link.find('visual/origin').get('xyz')
             link_rpy = link.find('visual/origin').get('rpy')
@@ -52,9 +51,17 @@ def parse_urdf_file(root):
             links.append(line1)
 
     joints = []
+    indices =[]
 
     for joint in root.findall('joint'):  # inside robowflex getACM (unnecessary)
         j_child_name = joint.find('child').get('link')
+        if(joint.get('type') == 'fixed'):
+            continue
+        index_j = [i for i, s in enumerate(links) if j_child_name in s]
+        if (len(index_j)>0):
+            indices.append(index_j[0])
+            print(index_j, j_child_name)
+            print(links)
         if any(j_child_name in s for s in links):
             origin_xyz = joint.find('origin').get('xyz')
             origin_rpy = joint.find('origin').get('rpy')
@@ -63,8 +70,8 @@ def parse_urdf_file(root):
             joints.append(j_line)
 
     merge = []
-    for i in range(len(links)):
-        merge.append(links[i])
+    for i in range(len(indices)):
+        merge.append(links[indices[i]])
         merge.append(joints[i])
     return merge
 
