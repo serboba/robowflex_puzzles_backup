@@ -114,7 +114,7 @@ int main(int argc, char **argv)
             std::cout <<"position calculated" << std::endl;
 
             darts::TSR::Specification start_spec;
-            start_spec.setFrame(fetch_name,"wrist_roll_link","moving_link");
+            start_spec.setFrame(fetch_name,"wrist_roll_link","move_x_axis");
             start_spec.setPosition(new_position(0,0),new_position(0,1),new_position(0,2));
             start_spec.setRotation(quaternion(0,0),quaternion(0,1),quaternion(0,2),quaternion(0,3));
             auto start_tsr = std::make_shared<darts::TSR>(world,start_spec);
@@ -133,7 +133,7 @@ int main(int argc, char **argv)
             ompl::base::PlannerStatus solved;
 
             darts::TSR::Specification goal_spec2;  //
-            goal_spec2.setFrame(fetch_name, "wrist_roll_link", "moving_link");
+            goal_spec2.setFrame(fetch_name, "wrist_roll_link", "move_x_axis");
             goal_spec2.setPoseFromWorld(world);
             auto goal_tsr2 = std::make_shared<darts::TSR>(world, goal_spec2);
             auto goal = builder.getGoalTSR(goal_tsr2);
@@ -146,7 +146,6 @@ int main(int argc, char **argv)
 
             ompl::base::ScopedState<> goal_state(builder.space);
             builder.ss->getSpaceInformation().get()->getStateSpace()->copyFromReals(goal_state.get(),v2);
-
         //    std::cout << "SATISFIES BOUNDS ?? " << builder.info->satisfiesBounds(goal_state.get()) << std::endl;
         //    std::cout << "IS VALID?S ?? " << builder.info->isValid(goal_state.get()) << std::endl;
 
@@ -197,13 +196,15 @@ int main(int argc, char **argv)
         int counter = 0; // count tries
         while(!flag){
             get_pose(pose_m, object_no);
+            /*
             counter = 0;
             while(pose_m.cols()>8 && counter <=3){
                 get_pose(pose_m, object_no);
                 counter++;
             }
+             */
 
-            /* TODO SECURE STARTING POSE FROM EARLIER ROTATION */
+            /* TODO SECURE STARTING POSE FROM EARLIER ROTATION  // BUILDER BEFORE PLAN TO GRASP -> INF LOOP? OR SET JOINT TO 0 ?*/
             darts::PlanBuilder builder(world);
             builder.addGroup(fetch_name, GROUP_X);
             builder.setStartConfigurationFromWorld();
@@ -211,7 +212,7 @@ int main(int argc, char **argv)
 
             ompl::base::PlannerStatus solved;
             darts::TSR::Specification goal_spec;
-            goal_spec.setFrame(fetch_name, "wrist_roll_link", "moving_link");
+            goal_spec.setFrame(fetch_name, "wrist_roll_link", "move_x_axis");
 
             goal_spec.setPose(pose_m);
             //goal_spec.print(std::cout);
@@ -232,7 +233,7 @@ int main(int argc, char **argv)
             solved = builder.ss->solve(10.0);
             goal->stopSampling();
 
-            if (solved){
+            if (solved == ompl::base::PlannerStatus::EXACT_SOLUTION){
                 RBX_INFO("Found solution!");
                 window.animatePath(builder, builder.getSolutionPath());
                 flag = true;
@@ -262,7 +263,7 @@ int main(int argc, char **argv)
         auto idk = builder.getStartConfiguration();
 
         darts::TSR::Specification pos_spec;
-        pos_spec.setFrame(fetch_name,"wrist_roll_link", "moving_link");
+        pos_spec.setFrame(fetch_name,"wrist_roll_link", "move_x_axis");
         pos_spec.setPoseFromWorld(world);
 
         auto rotation = pos_spec.getRotation();
@@ -280,7 +281,7 @@ int main(int argc, char **argv)
         builder.initialize();
 
         darts::TSR::Specification goal_spec;
-        goal_spec.setFrame(fetch_name,"wrist_roll_link","moving_link");
+        goal_spec.setFrame(fetch_name,"wrist_roll_link","move_x_axis");
         handle_axis(axis,value,position);
         goal_spec.setPosition(position);
         goal_spec.setRotation(rotation);
@@ -289,7 +290,7 @@ int main(int argc, char **argv)
         //goal_spec.print(std::cout);
         auto goal_tsr = std::make_shared<darts::TSR>(world, goal_spec);
         auto goal = builder.getGoalTSR(goal_tsr);
-        goal->setThreshold(0.01); // maybe find better threshold?
+        goal->setThreshold(0.001); // maybe find better threshold?
         builder.setGoal(goal);
 
         //std::this_thread::sleep_for(std::chrono::milliseconds(5000));

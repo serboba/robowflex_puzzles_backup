@@ -399,6 +399,17 @@
     <child link="gripper_link" />
     <axis xyz="0 1 0" />
   </joint>
+
+  <link name ="pushgr"/>
+
+<joint name="gripper_axis2" type="continuous">
+    <origin rpy="0 0 0" xyz="0.2 0 0" />
+    <parent link="wrist_roll_link" />
+    <child link="pushgr" />
+    <axis xyz="1 0 0" />
+  </joint>
+  
+
   <link name="r_gripper_finger_link">
     <inertial>
       <origin rpy="0 0 0" xyz="-0.01 0 0" />
@@ -626,28 +637,38 @@
   </joint>
 
 
+  <link name ="move_y_axis" />
 
-  <link name="door">
-        <visual>
-         <geometry>
-             <box size="0.6 0.5 0.05"/>
-         </geometry>   
-         <origin rpy="0.0 1.57075 0" xyz="0.0 0.25 0.0"/>
-        </visual>         
-        <collision>
-         <origin rpy="0.0 1.57075 0" xyz="0.0 0.25 0.0"/>
-         <geometry>
-             <box size="0.6 0.5 0.05"/>
-         </geometry>   
-        </collision>
-  </link>
+  <joint name ="move_y_axis_joint" type="prismatic">
+    <origin rpy ="0 0 0" xyz ="0 0 0" />
+    <parent link="move_y_axis"/>
+    <child link ="rotate_z_axis"/>
+    <axis xyz="0 1 0" />
+    <limit effort="10" lower="-0.5" upper="0.5" velocity="20" />
+  </joint>
 
-    <joint name="base_to_door" type="revolute">
-        <parent link="base_link"/>
-        <child link="door"/>
-        <origin xyz="0.40 -0.25 0.3"/>
-        <axis xyz="0.0 0.0 1"/>
-        <limit lower="-3.17" upper="0.43" effort="0.05" velocity="1.57"/>
-    </joint>
+
+<link name ="move_x_axis" />
+
+  <joint name ="move_x_axis_joint" type="prismatic">
+    <origin rpy ="0 0 0" xyz ="0 0 0" />
+    <parent link="move_x_axis"/>
+    <child link ="move_y_axis"/>
+    <axis xyz="1 0 0" />
+    <limit effort="10" lower="-0.5" upper="0.5" velocity="20" />
+  </joint>
+
+
+  <link name ="rotate_z_axis" />
+
+  <joint name ="rotate_z_joint" type="revolute">
+    <origin rpy ="0 0 0" xyz ="0 0 0" />
+    <parent link="rotate_z_axis"/>
+    <child link ="base_link"/>
+    <axis xyz="0 0 1" />
+    <limit effort="10" lower="-3.14" upper="3.14" velocity="20" />
+  </joint>
+
+
 
 </robot>
