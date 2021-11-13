@@ -41,6 +41,7 @@
 #include <robowflex_dart/tsr.h>
 #include <robowflex_dart/world.h>
 #include <robowflex_dart/point_collector.h>
+#include <robowflex_dart/Object.h>
 
 
 using namespace robowflex;
@@ -48,14 +49,6 @@ using namespace robowflex;
 static const std::string GROUP = "arm_with_torso";
 static const std::string GROUP_X = "arm_with_x_move";
 
-
-/*
-for ( auto it = VectorOfPairs.begin(); it != VectorOfPairs.end(); it++ )
-{
-// To get hold of the class pointers:
-auto pClass1 = it->first;
-auto pClass2 = it->second;
-}*/
 
 
 int main(int argc, char **argv)
@@ -78,7 +71,7 @@ int main(int argc, char **argv)
     world->addRobot(fetch_dart);
     world->addRobot(door_dart);
 
-
+    create_objects_from_urdf();
 
 
     /* NEVER CHANGE THIS ROBOT LOADING STRUCTURE UNTIL HERE !!!! */
@@ -214,7 +207,8 @@ int main(int argc, char **argv)
             darts::TSR::Specification goal_spec;
             goal_spec.setFrame(fetch_name, "wrist_roll_link", "move_x_axis");
 
-            goal_spec.setPose(pose_m);
+            goal_spec.setPose(pose_m); // HOP
+
             //goal_spec.print(std::cout);
             auto goal_tsr = std::make_shared<darts::TSR>(world, goal_spec);
             auto goal = builder.getGoalTSR(goal_tsr);
@@ -253,6 +247,8 @@ int main(int argc, char **argv)
         else
             OMPL_INFORM("INVALID AXIS");
     };
+
+    /* TODO HANDLE ROTATION -> PLAN TO ROTATE TO IMPLEMENT */
 
     const auto &plan_to_move_xyz_axis = [&](std::string group_name, std::string link_name, std::string joint_name, bool &flag, int axis, double value) {
         darts::PlanBuilder builder(world);
@@ -321,10 +317,12 @@ int main(int argc, char **argv)
 
     window.run([&] {
        // create_txt_from_urdf();
+       //std::vector<Object> obj_s = get_objects();
         std::this_thread::sleep_for(std::chrono::milliseconds(2000));
         bool flag = false;
 
         std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+
         double threshold_multiplier = 1.0;
 
         while(!flag){
@@ -351,6 +349,5 @@ int main(int argc, char **argv)
 
     return 0;
 }
-
 
 
