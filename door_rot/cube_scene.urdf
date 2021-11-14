@@ -69,13 +69,13 @@
         <geometry>
           <box size="0.03 0.146 0.173"/>
         </geometry>
-        <origin rpy="0 0 0" xyz="0.0 0 0" />
+        <origin rpy="0 0 0" xyz="0.0 0.073 0" />
       </visual>
       <collision>
         <geometry>  
           <box size="0.03 0.146 0.173"/>
         </geometry>
-        <origin rpy="0 0 0" xyz="0 0 0" />       
+        <origin rpy="0 0 0" xyz="0.0 0.073 0" />       
        </collision>
     </link>
 
@@ -106,7 +106,7 @@
 
 
 <joint name="cube_joint" type="prismatic">
-    <origin rpy="0 0 0" xyz="0.60 -0.2 0.84" />
+    <origin rpy="0 0 0" xyz="1.60 -0.2 0.84" />
     <parent link="base_link" />
     <child link="cube1" />
     <axis xyz="0 -1 0" />
@@ -115,16 +115,16 @@
   </joint>
 
 
-    <joint name="door_joint1" type="prismatic">
+    <joint name="door_joint1" type="revolute">
         <origin rpy="0 0 1.57" xyz="0.6 -0.5 0.87"/>
         <parent link="base_link"/>
         <child link="door1"/>
-        <axis xyz="0.0 -1.0 0.0"/>
-        <limit lower="0" upper="0.4" effort="0.05" velocity="1.57"/>
+        <axis xyz="0 0 1"/>
+        <limit lower="-1.60" upper="0" effort="0.05" velocity="1.57"/>
     </joint>
 
     <joint name="door_joint2" type="prismatic">
-        <origin rpy="0 0 1.57" xyz="0.6 -0.7 0.87"/>
+        <origin rpy="0 0 1.57" xyz="1.6 -0.7 0.87"/>
         <parent link="base_link"/>
         <child link="door2"/>
         <axis xyz="0.0 -1.0 0.0"/>
