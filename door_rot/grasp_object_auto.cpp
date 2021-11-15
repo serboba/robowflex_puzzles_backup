@@ -77,29 +77,38 @@ int main(int argc, char **argv)
     /* NEVER CHANGE THIS ROBOT LOADING STRUCTURE UNTIL HERE !!!! */
     darts::Window window(world);
 
+    const auto &strech_normal = [&](Eigen::MatrixXd &normal_vec){ // test?
+        for(int i = 0; i < 3 ;i++){
+            if(normal_vec(0,i) == 0.0)
+                continue;
+            if(normal_vec(0,i) > 0.0)
+                normal_vec(0,i) +=0.01;
+            else
+                normal_vec(0,i) -=0.01;
+        }
+    };
+
+    const auto &get_start_state = [&](darts::PlanBuilder &builder_, std::vector<double> &config){ // test?
+        Eigen::VectorXd start_config = builder_.getStartConfiguration();
+        config.resize(start_config.size());
+        Eigen::VectorXd::Map(&config[0], start_config.size()) = start_config;
+
+    };
+
 
     const auto &evaluate_pos = [&](Eigen::MatrixXd &pose){
         darts::PlanBuilder builder(world);
         builder.addGroup(fetch_name, GROUP_X);
         bool found_pose = false;
         //int max_iter = 20;
-        Eigen::MatrixXd pose_m = pose.block(0, 0, 1, 7);
         Eigen::MatrixXd normal_v = pose.block(0, 7, 1, 3);
-        Eigen::MatrixXd position = pose_m.block(0, 0, 1, 3);
-        Eigen::MatrixXd quaternion = pose_m.block(0, 3, 1, 4);
+        Eigen::MatrixXd position = pose.block(0, 0, 1, 3);
+        Eigen::MatrixXd quaternion = pose.block(0, 3, 1, 4);
         double l = 0.0;
 
         while(!found_pose && l<=0.30){ // HOW TO SET L VALUE??
-            l = l+ 0.01;
-        //    std::cout << "L RATIO" << l << std::endl; // adjust normals by l
-            for(int i = 0; i < 3 ;i++){
-                if(normal_v(0,i) == 0.0)
-                    continue;
-                if(normal_v(0,i) > 0.0)
-                    normal_v(0,i) +=0.01;
-                else
-                    normal_v(0,i) -=0.01;
-            }
+            l = l+ 0.01; // todo adjust L ? find optimal L ? how to set optimal L ?
+            strech_normal(normal_v);
             Eigen::MatrixXd new_position = position + normal_v;
 
             std::cout <<"position calculated" << std::endl;
@@ -108,8 +117,9 @@ int main(int argc, char **argv)
 
             darts::TSR::Specification start_spec;
             start_spec.setFrame(fetch_name,"wrist_roll_link","move_x_axis");
-            start_spec.setPosition(new_position(0,0),new_position(0,1),new_position(0,2));
-            start_spec.setRotation(quaternion(0,0),quaternion(0,1),quaternion(0,2),quaternion(0,3));
+            start_spec.setPosition(new_position(0),new_position(1),new_position(2));
+            start_spec.setRotation(quaternion(0),quaternion(1),quaternion(2),quaternion(3));
+
             auto start_tsr = std::make_shared<darts::TSR>(world,start_spec);
             start_tsr->initialize();
             start_tsr->useGroup(GROUP_X);
@@ -118,11 +128,8 @@ int main(int argc, char **argv)
             builder.setStartConfigurationFromWorld();
             builder.initialize();
 
-            Eigen::VectorXd config = builder.getStartConfiguration();
-
-            std::vector<double> v2;
-            v2.resize(config.size());
-            Eigen::VectorXd::Map(&v2[0], config.size()) = config;
+            std::vector<double> config_vec;
+            get_start_state(builder,config_vec);
 
             ompl::base::PlannerStatus solved;
 
@@ -139,7 +146,7 @@ int main(int argc, char **argv)
             builder.setup();
 
             ompl::base::ScopedState<> goal_state(builder.space);
-            builder.ss->getSpaceInformation().get()->getStateSpace()->copyFromReals(goal_state.get(),v2);
+            builder.ss->getSpaceInformation().get()->getStateSpace()->copyFromReals(goal_state.get(),config_vec);
         //    std::cout << "SATISFIES BOUNDS ?? " << builder.info->satisfiesBounds(goal_state.get()) << std::endl;
         //    std::cout << "IS VALID?S ?? " << builder.info->isValid(goal_state.get()) << std::endl;
 
@@ -182,6 +189,44 @@ int main(int argc, char **argv)
         }
         pose_m = temp2;
         surf_no = temp_no;
+    };
+
+    const auto &handle_axis = [&](int axis, double value,Eigen::Vector3d &pos){
+        if (axis ==0)
+            pos.x()+= value;
+        else if(axis==1)
+            pos.y()+= value;
+        else if(axis==2)
+            pos.z() += value;
+        else
+            OMPL_INFORM("INVALID AXIS");
+    };
+
+    const auto &handle_rotation = [&](Eigen::MatrixXd obj_rot, std::vector<double> rot, Eigen::MatrixXd &new_rot){
+        new_rot << obj_rot(0)+rot[0] ,obj_rot(1)+rot[1],obj_rot(2)+rot[2];
+    };
+
+    const auto &update_object_position = [&](Object &obj ,int axis, double value){
+        obj.actual_position[axis] += value;
+    };
+
+    const auto &update_object_rotation = [&](Object &obj ,int axis, double value){ // test?
+        std::cout << "OLD POSITION OF LINK : " << obj.actual_position << std::endl;
+        obj.actual_position[axis] += value;
+        std::cout << "NEW POSITION OF LINK : " << obj.actual_position << std::endl;
+
+    };
+
+    const auto &get_pos_rot_from_frame = [&](Vector3d &position,MatrixXd &rotation,std::vector<double> degrees,Object obj, int surf_no){
+        darts::TSR::Specification pos_spec;
+        pos_spec.setFrame(fetch_name,"wrist_roll_link", "move_x_axis");
+        pos_spec.setPoseFromWorld(world);
+        position = get_rotated_vertex(degrees,pos_spec.getPosition(),obj.joint_xyz);
+
+        MatrixXd rpy_(1,3);
+        handle_rotation(obj.actual_rotation,degrees,rpy_);
+        rotation = new_rotation_quaternion(rpy_,surf_no);
+
     };
 
 
@@ -239,58 +284,18 @@ int main(int argc, char **argv)
         }
     };
 
-    const auto &handle_axis = [&](int axis, double value,Eigen::Vector3d &pos){
-        if (axis ==0)
-            pos.x()+= value;
-        else if(axis==1)
-            pos.y()+= value;
-        else if(axis==2)
-            pos.z() += value;
-        else
-            OMPL_INFORM("INVALID AXIS");
-    };
-
-    const auto &update_object_position = [&](Object &obj ,int axis, double value){ // test?
-        std::cout << "OLD POSITION OF LINK : " << obj.actual_position << std::endl;
-        obj.actual_position[axis] += value;
-        std::cout << "NEW POSITION OF LINK : " << obj.actual_position << std::endl;
-
-    };
-
-
-
-    /* TODO HANDLE ROTATION -> PLAN TO ROTATE TO IMPLEMENT */
-    const auto &plan_to_rotate_rpy = [&](Object &obj, bool &flag, int axis, double value, int surf_no) {
+    const auto &plan_to_rotate_rpy = [&](Object &obj, bool &flag, int axis, double value, int surf_no) { // TODO TAKE DEGREES AS INPUT
         darts::PlanBuilder builder(world);
-        robowflex::darts::WorldPtr world_temp = builder.world;
         builder.addGroup(fetch_name, GROUP_X);
         builder.addGroup(door_name, obj.group_name);
         builder.setStartConfigurationFromWorld();
         auto idk = builder.getStartConfiguration();
 
-        darts::TSR::Specification pos_spec;
-        pos_spec.setFrame(fetch_name,"wrist_roll_link", "move_x_axis");
-        pos_spec.setPoseFromWorld(world);
-
-        Quaterniond rotation = pos_spec.getRotation();
-        Eigen::Vector3d position = pos_spec.getPosition();
-
-        std::cout<< "OLD POSITION ! : " << position[0] << "," << position[1] << "," << position[2] << std::endl;
-
+        Eigen::MatrixXd rotation;
+        Eigen::Vector3d position;
         std::vector<double> degrees = {0.0,0.0,-1.57};
 
-        MatrixXd new_position = get_rotated_vertex(degrees,position,obj.joint_xyz);
-        std::cout << "YOOOOOOOO SURF NOO : " << surf_no << std::endl;
-        MatrixXd rpy_(1,3);
-        rpy_ << obj.actual_rotation(0)+degrees[0] ,obj.actual_rotation(1)+degrees[1],obj.actual_rotation(2)+degrees[2];
-        MatrixXd q = new_rotation_quaternion(rpy_,surf_no);
-
-        std::cout << "OLD ROTATION " << rotation.w() << "," << rotation.x() << "," << rotation.y() << "," << rotation.z() << std::endl;
-
-
-        std::cout<< "NEW POSITION  : " << new_position(0) << "," << new_position(1) << "," << new_position(2) << std::endl;
-
-        std::cout << "NEW ROTATION " << q(0) << "," << q(1) << "," << q(2) << "," << q(3) << std::endl;
+        get_pos_rot_from_frame(position,rotation,degrees,obj, surf_no);
 
         darts::TSR::Specification con_spec;
         con_spec.setBase(door_name, obj.link_name);
@@ -299,16 +304,14 @@ int main(int argc, char **argv)
 
         auto cons_tsr = std::make_shared<darts::TSR>(world,con_spec);
         builder.addConstraint(cons_tsr);
-
         builder.initialize();
 
         darts::TSR::Specification goal_spec;
         goal_spec.setFrame(fetch_name,"wrist_roll_link","move_x_axis");
-        goal_spec.setPosition(new_position);
-        goal_spec.setRotation(q(0),q(1),q(2),q(3));
+        goal_spec.setPosition(position);
+        goal_spec.setRotation(rotation(0),rotation(1),rotation(2),rotation(3));
 
-        //std::cout<< "GOAL" <<    std::endl;
-        //goal_spec.print(std::cout);
+
         auto goal_tsr = std::make_shared<darts::TSR>(world, goal_spec);
         auto goal = builder.getGoalTSR(goal_tsr);
         goal->setThreshold(0.01); // maybe find better threshold?
@@ -343,7 +346,6 @@ int main(int argc, char **argv)
 
     const auto &plan_to_move_xyz_axis = [&](Object &obj, bool &flag, int axis, double value) {
         darts::PlanBuilder builder(world);
-        robowflex::darts::WorldPtr world_temp = builder.world;
         builder.addGroup(fetch_name, GROUP_X);
         builder.addGroup(door_name, obj.group_name);
         builder.setStartConfigurationFromWorld();
