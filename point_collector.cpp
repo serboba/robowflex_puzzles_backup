@@ -17,6 +17,7 @@
 #include <robowflex_library/util.h>
 #include <robowflex_dart/point_collector.h>
 #include <robowflex_dart/Object.h>
+#include <tf2/LinearMath/Quaternion.h>
 
 using namespace Eigen;
 
@@ -50,29 +51,90 @@ Quaterniond get_quaternion_from_euler(float yaw, float pitch, float roll){
     q =  AngleAxisd (yaw,Vector3d::UnitZ())*AngleAxisd (pitch,Vector3d::UnitY()) *AngleAxisd (roll,Vector3d::UnitX());
     return q;
 }
+Eigen::MatrixXd rpy_to_quaternion(double roll, double pitch, double yaw){
+    tf2::Quaternion q_new;
+    q_new.setRPY(roll,pitch,yaw);
+    Eigen::MatrixXd quaternion_(1,4);
+    quaternion_ << q_new.getW(), q_new.getX(), q_new.getY(), q_new.getZ();
+    return quaternion_;
+}
+
+tf2::Quaternion eigen_to_tfquaternion(Eigen::MatrixXd quaternion){
+    tf2::Quaternion q_;
+    q_.setW(quaternion(0));
+    q_.setX(quaternion(1));
+    q_.setY(quaternion(2));
+    q_.setZ(quaternion(3));
+    return q_;
+}
+tf2::Quaternion eigen_to_tfquaternion(Eigen::Quaterniond quaternion){
+    tf2::Quaternion q_;
+    q_.setW(quaternion.w());
+    q_.setX(quaternion.x());
+    q_.setY(quaternion.y());
+    q_.setZ(quaternion.z());
+    return q_;
+}
+
+Eigen::Quaterniond matrix_to_quaternion(Eigen::MatrixXd matrix){
+    Quaterniond q;
+    q.w() = matrix(0);
+    q.x() = matrix(1);
+    q.y() = matrix(2);
+    q.z() = matrix(3);
+    return q;
+}
+
+Eigen::Quaterniond tf_to_eigen_quaternion(tf2::Quaternion quaternion){
+    Eigen::Quaterniond q_;
+    q_.w() = quaternion.getW();
+    q_.x() = quaternion.getX();
+    q_.y() = quaternion.getY();
+    q_.z() = quaternion.getZ();
+    return q_;
+}
+
+Eigen::MatrixXd tf_to_eigen_matrix_q(tf2::Quaternion quaternion){
+    Eigen::MatrixXd q_;
+    q_(0) = quaternion.getW();
+    q_(1) = quaternion.getX();
+    q_(2) = quaternion.getY();
+    q_(2) = quaternion.getZ();
+    return q_;
+}
+
+
+std::vector<double> eigenvector_to_std(Vector3d vec){
+    std::vector<double> degree;
+    degree.resize(vec.size());
+    VectorXd::Map(&degree[0],vec.size()) = vec;
+    return degree;
+}
+
+MatrixXd vec_to_matrix(Vector3d vec){
+    MatrixXd m(1,3);
+    m << vec[0],vec[1],vec[2];
+    return m;
+}
+
 
 MatrixXd quaternion_to_euler(Quaterniond q){
     return q.toRotationMatrix().eulerAngles(2,1,0);
 }
 
-MatrixXd get_rotated_vertex(std::vector<double> degrees, Vector3d point, Vector3d joint_pos ){
-    /*
-    std::cout << "degrees : " << degrees[0] << "-" << degrees[1] << "-" << degrees[2] << std::endl;
-    std::cout<< "point : " << point << std::endl;
-    std::cout<< "jopoint : " << joint_pos << std::endl;
-    std::cout << "quat valw : " << get_quaternion_from_euler(degrees[2],degrees[1],degrees[0]).w() << std::endl;
-    std::cout << "quat valx : " << get_quaternion_from_euler(degrees[2],degrees[1],degrees[0]).x() << std::endl;
-    std::cout << "quat valy : " << get_quaternion_from_euler(degrees[2],degrees[1],degrees[0]).y() << std::endl;
-    std::cout << "quat valz : " << get_quaternion_from_euler(degrees[2],degrees[1],degrees[0]).z() << std::endl;
-    */
-    return (joint_pos+ get_quaternion_from_euler(degrees[2],degrees[1],degrees[0])*(point-joint_pos));
+MatrixXd get_rotated_vertex(Vector3d obj_rpy, Vector3d point, Vector3d joint_pos ){
+
+    MatrixXd q1 = rpy_to_quaternion(obj_rpy[0],obj_rpy[1],obj_rpy[2]);
+
+    return (joint_pos + matrix_to_quaternion(q1)*(point-joint_pos));
+    //return (joint_pos+ get_quaternion_from_euler(degrees[2],degrees[1],degrees[0])*(point-joint_pos));
 }
 
-MatrixXd get_rotated_object(std::vector<double> degrees, Vector3d joint_pos, Vector3d object_size){ //rotate for all vertices
+MatrixXd get_rotated_object(Vector3d obj_rpy, Vector3d joint_pos, Vector3d object_size){ //rotate for all vertices
     MatrixXd vertices = get_object_vertices(joint_pos,object_size);
     for(int i = 0 ; i< vertices.rows(); i++){
         Vector3d row = vertices.row(i);
-        MatrixXd new_v = get_rotated_vertex(degrees, row, joint_pos);
+        MatrixXd new_v = get_rotated_vertex(obj_rpy, row, joint_pos);
         vertices.row(i) << new_v(0),new_v(1),new_v(2);
     }
     return vertices;
@@ -153,73 +215,150 @@ MatrixXd get_normal_of_plane(MatrixXd surface_equation){
     return adjust_normals(normals);
 }
 
-MatrixXd sort_quaternion(Quaterniond q){
-    MatrixXd sorted_q(1,4);
-    sorted_q << q.w(), q.x(),q.y(),q.z();
-    return sorted_q;
+
+MatrixXd get_quaternion_unten(MatrixXd rpy){
+    std::cout << "MATRIX RPY " << rpy << std::endl;
+    MatrixXd q_(1,4);
+    q_ << rpy_to_quaternion(rpy(0),rpy(1)-M_PI*0.5,rpy(2));  // unten
+                   std::cout <<"CALC QUATERNION " << q_ << std::endl;
+
+            return q_;
+
 }
+MatrixXd get_quaternion_links(MatrixXd rpy){
+    MatrixXd q_(1,4);
+    q_ << rpy_to_quaternion(rpy(0),rpy(1),rpy(2)+M_PI*0.5);  // links
+           return q_;
+}
+MatrixXd get_quaternion_hinten(MatrixXd rpy){
+    MatrixXd q_(1,4);
+    q_ << rpy_to_quaternion(rpy(0),rpy(1)-M_PI,rpy(2));      // hinten
+    return q_;
+
+}
+MatrixXd get_quaternion_rechts(MatrixXd rpy){
+    MatrixXd q_(1,4);
+    q_ << rpy_to_quaternion(rpy(0),rpy(1),rpy(2)-M_PI*0.5);  // rechts
+    return q_;
+}
+MatrixXd get_quaternion_vorne(MatrixXd rpy){
+    MatrixXd q_(1,4);
+    q_ << rpy_to_quaternion(rpy(0),rpy(1),rpy(2));           // vorne
+    return q_;
+}
+MatrixXd get_quaternion_oben(MatrixXd rpy){
+    MatrixXd q_(1,4);
+    q_ << rpy_to_quaternion(rpy(0),rpy(1)+M_PI*0.5,rpy(2));
+    return q_;
+}
+
+MatrixXd sort_quaternion(MatrixXd rpy){ // ROLL =
+    MatrixXd quaternions(6,4);
+    if (rpy(0) == 0.0 && rpy(1) == 0.0 && rpy(2) == 0.0){
+        quaternions<< get_quaternion_unten(rpy),get_quaternion_links(rpy),get_quaternion_hinten(rpy), get_quaternion_rechts(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy);
+    } // no rot
+
+    if (rpy(0) == 0.0 && rpy(1) == 0.0 && rpy(2) != 0.0){ // 0, 0, z achse != 0.0
+        //if(abs(rpy(2))>=0 && abs(rpy(2)) < 1.57){  // -1.57 < z < 1.57
+            //unten, links, hinten, rechts, vorne, oben
+            quaternions<< get_quaternion_unten(rpy),get_quaternion_links(rpy),get_quaternion_hinten(rpy), get_quaternion_rechts(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy);
+       /* }else if(rpy(2)>= 1.57 && rpy(2) < 3.14){
+            //unten, vorne, left, hinten, rechts, oben
+            quaternions << get_quaternion_unten(rpy),get_quaternion_hinten(rpy), get_quaternion_rechts(rpy), get_quaternion_vorne(rpy), get_quaternion_links(rpy), get_quaternion_oben(rpy);
+
+            }else if(rpy(2) <= -1.57 && rpy(2) > -3.14){
+            // unten , hinten, rechts, vorne, links, oben
+            quaternions << get_quaternion_unten(rpy), get_quaternion_vorne(rpy), get_quaternion_links(rpy), get_quaternion_hinten(rpy), get_quaternion_rechts(rpy), get_quaternion_oben(rpy);
+
+        }else{
+            // ERROR CHECK CASES? + 3.14 ??
+        }
+*/
+    }
+
+    if (rpy(0) == 0.0 && rpy(1) != 0.0 && rpy(2) == 0.0){ // 0, y achse != 0.0, 0
+        if(abs(rpy(1))>=0 && abs(rpy(1)) < 1.57){  // -1.57 < z < 1.57
+            //unten, links, hinten, rechts, vorne, oben
+            quaternions << get_quaternion_unten(rpy), get_quaternion_links(rpy), get_quaternion_hinten(rpy), get_quaternion_rechts(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy);
+        }else if(rpy(1)>= 1.57 && rpy(1) < 3.14){
+            //hinten, left, oben, rechts, unten, vorne
+            rpy(1) -=1.57;
+            quaternions << get_quaternion_vorne(rpy), get_quaternion_links(rpy), get_quaternion_unten(rpy), get_quaternion_rechts(rpy), get_quaternion_oben(rpy), get_quaternion_hinten(rpy);
+        }else if(rpy(1) <= -1.57 && rpy(1) > -3.14){
+            // vorne, left, unten, rechts, oben, hinten
+            rpy(1) -=1.57;
+            quaternions <<  get_quaternion_hinten(rpy), get_quaternion_links(rpy),get_quaternion_oben(rpy) , get_quaternion_rechts(rpy), get_quaternion_unten(rpy),get_quaternion_vorne(rpy);
+        }else{
+            // ERROR CHECK CASES? + 3.14
+        }
+    }
+
+
+    if (rpy(0) != 0.0 && rpy(1) == 0.0 && rpy(2) == 0.0){ // x achse != 0, 0, 0
+        if(abs(rpy(0))>=0 && abs(rpy(0)) < 1.57){  // -1.57 < z < 1.57
+            //unten, links, hinten, rechts, vorne, oben
+            quaternions << get_quaternion_unten(rpy), get_quaternion_links(rpy), get_quaternion_hinten(rpy),get_quaternion_rechts(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy);
+        }else if(rpy(0)>= 1.57 && rpy(0) < 3.14){
+            //left, oben, hinten, unten, vorne, rechts
+            quaternions << get_quaternion_rechts(rpy), get_quaternion_unten(rpy), get_quaternion_hinten(rpy), get_quaternion_oben(rpy), get_quaternion_vorne(rpy), get_quaternion_links(rpy);
+
+        }else if(rpy(0) <= -1.57 && rpy(0) > -3.14){
+            // rechts, unten, hinten, oben, vorne, left
+            quaternions << get_quaternion_links(rpy), get_quaternion_oben(rpy), get_quaternion_hinten(rpy),get_quaternion_unten(rpy), get_quaternion_vorne(rpy), get_quaternion_rechts(rpy);
+
+        }else{
+            // ERROR CHECK CASES? + 3.14
+        }
+    }
+
+    // TODO CHECK DIFFERENT ROTATIONS + COMBINATIONS OF THEM (F.E. 0,1.57,1.57) AND SO ON, -> HARDCODE AS ABOVE BUT, FIX 3.14 AND ELSE CASE BEFORE THAT
+    std::cout << quaternions << std::endl;
+    return quaternions;
+
+}
+
 
 MatrixXd translate_rotations(MatrixXd rpy){
-    MatrixXd quaternions(6,4*3);
-    quaternions <<
-                sort_quaternion(get_quaternion_from_euler(rpy(0),rpy(1)-M_PI*0.5,rpy(2))),  // unten
-            sort_quaternion(get_quaternion_from_euler(rpy(0),rpy(1)-M_PI*0.5,rpy(2)+M_PI*0.5)),  // unten
-            sort_quaternion(get_quaternion_from_euler(rpy(0),rpy(1)-M_PI*0.5,rpy(2)-M_PI*0.5)),  // unten
 
-            sort_quaternion(get_quaternion_from_euler(rpy(2)+M_PI*0.5,rpy(1),rpy(0))),  // links
-            sort_quaternion(get_quaternion_from_euler(rpy(2)+M_PI*0.5,rpy(1),rpy(0)+M_PI*0.5)),  // links
-            sort_quaternion(get_quaternion_from_euler(rpy(2)+M_PI*0.5,rpy(1),rpy(0)-M_PI*0.5)),  // links
-
-
-            sort_quaternion(get_quaternion_from_euler(rpy(2),rpy(1)-M_PI,rpy(0))),              // hinten
-            sort_quaternion(get_quaternion_from_euler(rpy(2),rpy(1)-M_PI,rpy(0)+M_PI*0.5)),      // hinten
-            sort_quaternion(get_quaternion_from_euler(rpy(2),rpy(1)-M_PI,rpy(0)-M_PI*0.5)),      // hinten
-
-            sort_quaternion(get_quaternion_from_euler(rpy(2)-M_PI*0.5,rpy(1),rpy(0))),             // rechts
-            sort_quaternion(get_quaternion_from_euler(rpy(2)-M_PI*0.5,rpy(1),rpy(0)+M_PI*0.5)),  // rechts
-            sort_quaternion(get_quaternion_from_euler(rpy(2)-M_PI*0.5,rpy(1),rpy(0)-M_PI*0.5)),  // rechts
-
-            sort_quaternion(get_quaternion_from_euler(rpy(2),rpy(1),rpy(0))),                      // vorne
-            sort_quaternion(get_quaternion_from_euler(rpy(2),rpy(1),rpy(0)+M_PI*0.5)),           // vorne
-            sort_quaternion(get_quaternion_from_euler(rpy(2),rpy(1),rpy(0)-M_PI*0.5)),           // vorne
-
-
-            sort_quaternion(get_quaternion_from_euler(rpy(0),rpy(1)+M_PI*0.5,rpy(2))),  // oben
-            sort_quaternion(get_quaternion_from_euler(rpy(0),rpy(1)+M_PI*0.5,rpy(2)+M_PI*0.5)),
-            sort_quaternion(get_quaternion_from_euler(rpy(0),rpy(1)+M_PI*0.5,rpy(2)-M_PI*0.5));
-
-    return quaternions;
+     return sort_quaternion(rpy);
 }
 
-MatrixXd new_rotation_quaternion(MatrixXd rpy, int surface_no){ // rpy sum = actual rot + wanted rot
-
+MatrixXd new_rotation_quaternion(MatrixXd rpy,Eigen::Quaterniond q_original, int surface_no){ // rpy sum = actual rot + wanted rot
+    tf2::Quaternion q_rot;
     switch (surface_no) {
-        case 0: return (sort_quaternion(get_quaternion_from_euler(rpy(0),rpy(1)-M_PI*0.5,rpy(2))));             // unten
-        case 1: return (sort_quaternion(get_quaternion_from_euler(rpy(0),rpy(1)-M_PI*0.5,rpy(2)+M_PI*0.5)));         // unten
-        case 2: return (sort_quaternion(get_quaternion_from_euler(rpy(0),rpy(1)-M_PI*0.5,rpy(2)-M_PI*0.5)));         // unten
-
-        case 3: return (sort_quaternion(get_quaternion_from_euler(rpy(2)+M_PI*0.5,rpy(1),rpy(0))));                  // links
-        case 4: return (sort_quaternion(get_quaternion_from_euler(rpy(2)+M_PI*0.5,rpy(1),rpy(0)+M_PI*0.5)));         // links
-        case 5: return (sort_quaternion(get_quaternion_from_euler(rpy(2)+M_PI*0.5,rpy(1),rpy(0)-M_PI*0.5)));         // links
-
-
-        case 6: return (sort_quaternion(get_quaternion_from_euler(rpy(2),rpy(1)-M_PI,rpy(0))));                      // hinten
-        case 7: return (sort_quaternion(get_quaternion_from_euler(rpy(2),rpy(1)-M_PI,rpy(0)+M_PI*0.5)));             // hinten
-        case 8: return (sort_quaternion(get_quaternion_from_euler(rpy(2),rpy(1)-M_PI,rpy(0)-M_PI*0.5)));             // hinten
-
-        case 9: return (sort_quaternion(get_quaternion_from_euler(rpy(2)-M_PI*0.5,rpy(1),rpy(0))));                  // rechts
-        case 10: return (sort_quaternion(get_quaternion_from_euler(rpy(2)-M_PI*0.5,rpy(1),rpy(0)+M_PI*0.5)));        // rechts
-        case 11: return (sort_quaternion(get_quaternion_from_euler(rpy(2)-M_PI*0.5,rpy(1),rpy(0)-M_PI*0.5)));        // rechts
-
-        case 12: return (sort_quaternion(get_quaternion_from_euler(rpy(2),rpy(1),rpy(0))));                          // vorne
-        case 13: return (sort_quaternion(get_quaternion_from_euler(rpy(2),rpy(1),rpy(0)+M_PI*0.5)));                 // vorne
-        case 14: return (sort_quaternion(get_quaternion_from_euler(rpy(2),rpy(1),rpy(0)-M_PI*0.5)));                 // vorne
-
-
-        case 15: return (sort_quaternion(get_quaternion_from_euler(rpy(0),rpy(1)+M_PI*0.5,rpy(2))));          // oben
-        case 16: return (sort_quaternion(get_quaternion_from_euler(rpy(0),rpy(1)+M_PI*0.5,rpy(2)-M_PI*0.5)));   // oben
-        case 17: return (sort_quaternion(get_quaternion_from_euler(rpy(0),rpy(1)+M_PI*0.5,rpy(2)+M_PI*0.5)));   // oben
+        case 0: case 1: case 2: case 15: case 16: case 17:          // unten
+            q_rot = eigen_to_tfquaternion(rpy_to_quaternion(rpy(0),rpy(1),rpy(2)));             //unten
+            break;
+        case 3: case 4: case 5:  case 6: case 7: case 8: case 9: case 10: case 11: case 12: case 13: case 14:
+            q_rot = eigen_to_tfquaternion(rpy_to_quaternion(rpy(0),rpy(1),rpy(2)));          // oben
+            break;
     }
+    tf2::Quaternion q_org = eigen_to_tfquaternion(q_original);
+    tf2::Quaternion q_new;
+    q_new = q_rot*q_org;
+    q_new.normalize();
+    return tf_to_eigen_matrix_q(q_new);
+
+}
+
+
+Eigen::Quaterniond rotate_quaternion(double roll, double pitch, double yaw, Quaterniond old_q){
+    tf2::Quaternion q_rot;
+    q_rot.setRPY(roll,pitch,yaw);
+    tf2::Quaternion q_old;
+    q_old.setW(old_q.w());
+    q_old.setX(old_q.x());
+    q_old.setY(old_q.y());
+    q_old.setZ(old_q.z());
+    tf2::Quaternion q_new;
+    q_new = q_rot*q_old;
+    q_new.normalize();
+    Eigen::Quaterniond q_res;
+    q_res.w() = q_new.getW();
+    q_res.x() = q_new.getX();
+    q_res.y() = q_new.getY();
+    q_res.z() = q_new.getZ();
+    return q_res;
 }
 
 
@@ -292,8 +431,8 @@ void read_urdf_file(std::string filename){
 }
 
 void create_objects_from_urdf(){
-    read_srdf_file("cube_scene_srdf.txt");
-    read_urdf_file("cube_scene.txt");
+    read_srdf_file("grasp_srdf.txt");
+    read_urdf_file("grasp.txt");
     //std::vector<Object> objects_;
     for(int i = 0; i < joint_positions.size(); i++){
         Vector3d joint_xyz(joint_positions[i].data());
@@ -312,6 +451,7 @@ void create_objects_from_urdf(){
 
 MatrixXd match_quaternion_to_surface(int quaternion_no, int surface_no, MatrixXd rpy_matrix){
     MatrixXd quaternions = translate_rotations(rpy_matrix); // calculate corresponding quaternions for pose (all poses)
+    std::cout << "YO ? <" << quaternions << std::endl;
     MatrixXd  q = quaternions.row(surface_no).block(0,quaternion_no*4,1,4); // quat row for obj is surface_no*3 + quaternion no
     return q;
 }
@@ -327,6 +467,7 @@ std::vector<double> get_ratio_dir_vecs(){
         ratio_vec /= 10;
         ratio.push_back(ratio_vec);
         i++;
+        std::cout <<"RANDOM RATIO VALUE : "<< ratio_vec << std::endl;
     }
     return ratio;
 }
@@ -338,6 +479,8 @@ MatrixXd get_point_position(MatrixXd surface_equation,std::vector<double> ratio_
     Map<MatrixXd> direction_vector2(surface_equation.data()+6,1,3);
     direction_vector1 *= ratio_dir_vectors[0];
     direction_vector2 *= ratio_dir_vectors[1];
+    std::cout <<  "RATIO DIR VECTOR 1 " << ratio_dir_vectors[0] << std::endl;
+    std::cout <<  "RATIO DIR VECTOR 2 " << ratio_dir_vectors[1] << std::endl;
 
     return (position_vector+direction_vector1+direction_vector2);
 }
@@ -345,7 +488,7 @@ MatrixXd get_point_position(MatrixXd surface_equation,std::vector<double> ratio_
 MatrixXd get_random_point_from_surface(MatrixXd surface_equation_matrix, MatrixXd rpy_matrix, MatrixXd normals){ // eine ebenengleichung
     srand ( time(NULL) );
     int surface_no =rand() %6; // SURFACE NUMBER-> NEED IT FOR QUATERNIONS !!! DONT LOSE IT
-    int quaternion_no = rand() %3;
+    int quaternion_no = 0;
     int surf_q_no = (surface_no*3)+quaternion_no; // surf no w quats
     std::cout << " SURFACE NO: " << surface_no << std::endl;
     std::cout << " QUAT NO: " << quaternion_no << std::endl;
@@ -359,31 +502,19 @@ MatrixXd get_random_point_from_surface(MatrixXd surface_equation_matrix, MatrixX
 
 }
 
-std::vector<double> eigenvector_to_std(Vector3d vec){
-    std::vector<double> degree;
-    degree.resize(vec.size());
-    VectorXd::Map(&degree[0],vec.size()) = vec;
-    return degree;
-}
-
-MatrixXd vec_to_matrix(Vector3d vec){
-    MatrixXd m(1,3);
-    m << vec[0],vec[1],vec[2];
-    return m;
-}
-
 Eigen::MatrixXd get_pose_object(Object &obj){
 
-    std::vector<double> degrees = eigenvector_to_std(obj.actual_rotation);
-    MatrixXd actual_rpy = vec_to_matrix(obj.actual_rotation);
-    obj.actual_position = get_rotated_vertex(degrees, (obj.link_xyz + obj.joint_xyz), obj.joint_xyz); // ADJUST JOINT POS W RESPECT TO LINK XYZ
+
+    obj.actual_position = get_rotated_vertex(obj.actual_rotation, (obj.link_xyz + obj.joint_xyz), obj.joint_xyz); // ADJUST JOINT POS W RESPECT TO LINK XYZ
 
     std::cout <<  "Actual position : " << obj.actual_position << std::endl;
-    std::cout <<  "Actual rotation : " << actual_rpy << std::endl;
-
-    MatrixXd surface_equation = get_surface_equation(get_rotated_object(degrees, obj.actual_position,obj.link_size));
+    std::cout <<  "Actual rotation : " << obj.actual_rotation << std::endl;
+    auto vertices = get_rotated_object(obj.actual_rotation, obj.actual_position,obj.link_size);
+    MatrixXd surface_equation = get_surface_equation(get_rotated_object(obj.actual_rotation, obj.actual_position,obj.link_size));
     MatrixXd normals = get_normal_of_plane(surface_equation);
-    MatrixXd random_pose = get_random_point_from_surface(surface_equation,actual_rpy,normals);
+    MatrixXd rpy_matrix= vec_to_matrix(obj.link_rpy+obj.joint_rpy);
+
+    MatrixXd random_pose = get_random_point_from_surface(surface_equation,rpy_matrix,normals);
 
     return random_pose;
 }

@@ -11,6 +11,7 @@
 #include <Eigen/Dense>
 #include <robowflex_library/util.h>
 #include <robowflex_dart/point_collector.h>
+#include <tf2/LinearMath/Quaternion.h>
 
 
 #ifndef ROBOWFLEX_DART_OBJECT_H
@@ -24,11 +25,13 @@ class Object {
     public:
 
         std::string link_name;
-        Vector3d link_size,link_xyz,link_rpy;
+        Vector3d link_size,link_xyz, link_rpy, joint_rpy;
         std::string joint_name, group_name;
-        Vector3d joint_xyz,joint_rpy;
+        Vector3d joint_xyz;
+        //tf2::Quaternion actual_rotation;
 
-        Vector3d actual_position, actual_rotation;
+
+        Vector3d actual_position,actual_rotation;
 
         Object(std::string l_name,Eigen::Vector3d l_size,Eigen::Vector3d l_xyz, Eigen::Vector3d l_rpy,
                std::string j_name, Eigen::Vector3d j_xyz, Eigen::Vector3d j_rpy, std::string gr_name){
@@ -42,7 +45,8 @@ class Object {
             joint_rpy = j_rpy;
             group_name = gr_name;
             actual_position = j_xyz+l_xyz;
-            actual_rotation = j_rpy+l_rpy;
+            actual_rotation = j_rpy + l_rpy;
+            actual_position.normalize();
             std::cout << "ACTUAL POS " << actual_position << std::endl;
             std::cout << "ACTUAL ROT " << actual_rotation << std::endl;
             }

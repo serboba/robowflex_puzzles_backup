@@ -19,10 +19,11 @@ Eigen::MatrixXd get_pose_object (Object &obj);
 void create_objects_from_urdf();
 std::vector<Object> get_objects();
 void set_objects(std::vector<Object> objects_);
-MatrixXd get_rotated_vertex(std::vector<double> degrees, Vector3d point, Vector3d joint_pos );
+
+MatrixXd get_rotated_vertex(Vector3d obj_rpy, Vector3d point, Vector3d joint_pos );
 Quaterniond get_quaternion_from_euler(float yaw, float pitch, float roll);
 
-MatrixXd new_rotation_quaternion(MatrixXd rpy, int surface_no);
+MatrixXd new_rotation_quaternion(MatrixXd rpy, Quaterniond q_original, int surface_no);
     void create_txt_from_urdf();
 
 #endif //ROBOWFLEX_DART_POINT_COLLECTOR_H
