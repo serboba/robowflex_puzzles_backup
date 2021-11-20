@@ -252,17 +252,248 @@ MatrixXd get_quaternion_oben(MatrixXd rpy){
     return q_;
 }
 
+MatrixXd quaternion_x_y_z(MatrixXd rpy){
+    MatrixXd quaternions(6,4);
+     // x achse != 0, 0, 0
+
+     if(rpy(0)!= 0.0 && abs(rpy(0)) < 1.57)
+     {
+         if(rpy(1) == 0.0 && rpy(2) ==0.0)
+         { // all values zero except x + between -1.57 < x < 1.57 FAIL  (ROLL<-> YAW ? FIX)
+             quaternions << get_quaternion_unten(rpy), get_quaternion_links(rpy), get_quaternion_hinten(rpy),get_quaternion_rechts(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy);
+         }
+     }
+     else if(rpy(0)>= 1.57 && rpy(0) < 3.14)
+     {
+         if(rpy(1) != 0.0)
+         {
+             if(rpy(1) >= 1.57 && rpy(1) < 3.14)
+             { // 1.57 1.57 0 CORRECT
+                 rpy(1) = 0;
+                 rpy(0) = 0;
+                 std::cout << "BURADAAAA" << std::endl;
+                 quaternions << get_quaternion_rechts(rpy),get_quaternion_vorne(rpy), get_quaternion_unten(rpy), get_quaternion_hinten(rpy),get_quaternion_oben(rpy),get_quaternion_links(rpy)  ;
+
+             }
+             else if(rpy(1) <= -1.57 && rpy(1) > -3.14)
+             { // 1.57 -1.57 0 CORRECT
+                 rpy(1) = 0;
+                 rpy(0) = 0;
+                 quaternions << get_quaternion_rechts(rpy),get_quaternion_hinten(rpy), get_quaternion_oben(rpy) ,get_quaternion_vorne(rpy),get_quaternion_unten(rpy),get_quaternion_links(rpy);
+
+             }
+         }
+         else if(rpy(2) != 0.0)
+         {
+             if(rpy(2)>= 1.57 && rpy(2) <3.14)
+             { // x != 0, y=0, z!=0 CORRECT
+                 rpy(2) = 0;
+                 rpy(0) = 0;
+                 quaternions <<get_quaternion_vorne(rpy),get_quaternion_unten(rpy),get_quaternion_rechts(rpy), get_quaternion_oben(rpy), get_quaternion_links(rpy),get_quaternion_hinten(rpy) ;
+             }
+             else if(rpy(2) <= -1.57 && rpy(2) > -3.14)
+             { // CORRECT
+                 rpy(2) = 0;
+                 rpy(0) = 0;
+                 quaternions <<get_quaternion_hinten(rpy),get_quaternion_unten(rpy),get_quaternion_links(rpy), get_quaternion_oben(rpy), get_quaternion_rechts(rpy),get_quaternion_vorne(rpy) ;
+             }
+         }
+         else
+         { // 1.57 0 0 CORRECT
+             quaternions << get_quaternion_rechts(rpy), get_quaternion_unten(rpy), get_quaternion_hinten(rpy), get_quaternion_oben(rpy), get_quaternion_vorne(rpy), get_quaternion_links(rpy);
+         }
+     }
+     else if(rpy(0) <= -1.57 && rpy(0) > -3.14)
+     {
+         if(rpy(1)!= 0.0)
+         {
+             if(rpy(1) >= 1.57 && rpy(1) < 3.14)
+             { // x!= 0, y!=0, z!=0 CORRECT
+                 // rpy -= 1.57 ?
+                 rpy(1) = 0;
+                 rpy(0) = 0;
+                 quaternions << get_quaternion_links(rpy),  get_quaternion_hinten(rpy),get_quaternion_unten(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy), get_quaternion_rechts(rpy);
+             }
+             else if(rpy(1) <= -1.57 && rpy(1) > -3.14)
+             { // x!= 0, y!=0, z!=0 CORRECT
+                 rpy(1) = 0;
+                 rpy(0) = 0;
+                 quaternions << get_quaternion_links(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy), get_quaternion_hinten(rpy), get_quaternion_unten(rpy), get_quaternion_rechts(rpy);
+             }
+
+         }else if(rpy(2) != 0.0)
+         {
+             if(rpy(2)>= 1.57 && rpy(2) <3.14)
+             { // x != 0, y=0, z!=0 CORRECT
+                 rpy(2) = 0;
+                 rpy(0) = 0;
+                 quaternions << get_quaternion_hinten(rpy),get_quaternion_oben(rpy), get_quaternion_rechts(rpy), get_quaternion_unten(rpy), get_quaternion_links(rpy),get_quaternion_vorne(rpy);
+             }
+             else if(rpy(2) <= -1.57 && rpy(2) > -3.14)
+             { // CORRECT
+                 rpy(2) = 0;
+                 rpy(0) = 0;
+                 quaternions << get_quaternion_vorne(rpy),get_quaternion_oben(rpy), get_quaternion_links(rpy), get_quaternion_unten(rpy), get_quaternion_rechts(rpy),get_quaternion_hinten(rpy);
+             }
+         }
+         else // -1.57 0 0 CORRECT
+         {
+             quaternions << get_quaternion_links(rpy), get_quaternion_oben(rpy), get_quaternion_hinten(rpy),get_quaternion_unten(rpy), get_quaternion_vorne(rpy), get_quaternion_rechts(rpy);
+         }
+     }
+     else{
+         // ??
+     }
+
+     /*
+         if(rpy(0)!= 0  && abs(rpy(0)) < 1.57 ){  // -1.57 < z < 1.57
+            //unten, links, hinten, rechts, vorne, oben
+            quaternions << get_quaternion_unten(rpy), get_quaternion_links(rpy), get_quaternion_hinten(rpy),get_quaternion_rechts(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy);
+        }else if(rpy(0)>= 1.57 && rpy(0) < 3.14){
+            //left, oben, hinten, unten, vorne, rechts
+            if(rpy(1) ==0.0 && rpy(2) ==0.0){
+                quaternions << get_quaternion_rechts(rpy), get_quaternion_unten(rpy), get_quaternion_hinten(rpy), get_quaternion_oben(rpy), get_quaternion_vorne(rpy), get_quaternion_links(rpy);
+            }
+            if(rpy(2)>= 1.57 && rpy(2) <3.14){ // x != 0, y=0, z!=0
+                quaternions << get_quaternion_rechts(rpy),get_quaternion_hinten(rpy),get_quaternion_oben(rpy), get_quaternion_vorne(rpy), get_quaternion_unten(rpy), get_quaternion_links(rpy);
+            }else if(rpy(2) <= -1.57 && rpy(2) > -3.14){
+                quaternions << get_quaternion_rechts(rpy),get_quaternion_vorne(rpy), get_quaternion_unten(rpy),get_quaternion_hinten(rpy), get_quaternion_oben(rpy), get_quaternion_links(rpy);
+            }
+
+            if(rpy(1) >= 1.57 && rpy(1) < 3.14){ // x!= 0, y!=0, z!=0
+                quaternions << get_quaternion_hinten(rpy),get_quaternion_unten(rpy),get_quaternion_links(rpy), get_quaternion_oben(rpy), get_quaternion_rechts(rpy),get_quaternion_vorne(rpy);
+                // rpy -= 1.57 ?
+            }else if(rpy(1) <= -1.57 && rpy(1) > -3.14){ // x!= 0, y!=0, z!=0
+                quaternions << get_quaternion_vorne(rpy), get_quaternion_unten(rpy), get_quaternion_rechts(rpy),get_quaternion_oben(rpy), get_quaternion_links(rpy), get_quaternion_hinten(rpy);
+            }
+
+            }else if(rpy(0) <= -1.57 && rpy(0) > -3.14){
+                            // rechts, unten, hinten, oben, vorne, left
+                            quaternions << get_quaternion_links(rpy), get_quaternion_oben(rpy), get_quaternion_hinten(rpy),get_quaternion_unten(rpy), get_quaternion_vorne(rpy), get_quaternion_rechts(rpy);
+
+                            if(rpy(2)>= 1.57 && rpy(2) <3.14){ // x != 0, y=0, z!=0
+                                quaternions << get_quaternion_links(rpy),get_quaternion_hinten(rpy), get_quaternion_unten(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy),get_quaternion_rechts(rpy);
+                            }else if(rpy(2) <= -1.57 && rpy(2) > -3.14){
+                                quaternions << get_quaternion_links(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy), get_quaternion_hinten(rpy), get_quaternion_unten(rpy), get_quaternion_rechts(rpy);
+                            }
+
+                            if(rpy(1) >= 1.57 && rpy(1) < 3.14){ // x!= 0, y!=0, z!=0
+                                // rpy -= 1.57 ?
+                                quaternions << get_quaternion_hinten(rpy), get_quaternion_oben(rpy), get_quaternion_rechts(rpy), get_quaternion_unten(rpy), get_quaternion_links(rpy), get_quaternion_vorne(rpy);
+                            }else if(rpy(1) <= -1.57 && rpy(1) > -3.14){ // x!= 0, y!=0, z!=0
+                                quaternions << get_quaternion_vorne(rpy), get_quaternion_oben(rpy), get_quaternion_links(rpy), get_quaternion_unten(rpy), get_quaternion_rechts(rpy), get_quaternion_hinten(rpy);
+                            }
+
+        }else{
+            // ERROR CHECK CASES? + 3.14
+        }
+*/
+    return quaternions;
+
+}
+
+MatrixXd quaternion_y_z(MatrixXd rpy)
+{
+    MatrixXd quaternions(6,4);
+    if(rpy(1)!= 0.0 && abs(rpy(1)) < 1.57)
+    {
+        if(rpy(2) ==0.0)
+        { // all values zero except y NEEDS FIX
+            quaternions << get_quaternion_unten(rpy), get_quaternion_links(rpy), get_quaternion_hinten(rpy), get_quaternion_rechts(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy);
+        }
+    }
+    else if(rpy(1)>= 1.57 && rpy(1) < 3.14)
+    {
+        //hinten, left, oben, rechts, unten, vorne
+
+        if(rpy(2)!= 0.0)
+        {
+            if(rpy(2)>= 1.57 && rpy(2) <3.14)
+            { // x != 0, y=0, z!=0 CORRECT
+                rpy(1) =0;
+                rpy(2) =0;
+                quaternions << get_quaternion_links(rpy), get_quaternion_hinten(rpy), get_quaternion_unten(rpy),get_quaternion_vorne(rpy), get_quaternion_oben(rpy), get_quaternion_rechts(rpy);
+
+            }
+            else if(rpy(2) <= -1.57 && rpy(2) > -3.14)
+            { //   CORRECT
+                rpy(1) =0;
+                rpy(2) =0;
+                quaternions << get_quaternion_rechts(rpy), get_quaternion_vorne(rpy), get_quaternion_unten(rpy),get_quaternion_hinten(rpy), get_quaternion_oben(rpy), get_quaternion_links(rpy);
+            }
+        }else{ // CORRECT
+
+            rpy(1) = 0;
+            quaternions << get_quaternion_vorne(rpy), get_quaternion_links(rpy), get_quaternion_unten(rpy), get_quaternion_rechts(rpy), get_quaternion_oben(rpy), get_quaternion_hinten(rpy);
+        }
+    }
+    else if(rpy(1) <= -1.57 && rpy(1) > -3.14)
+    {
+        // vorne, left, unten, rechts, oben, hinten
+        if(rpy(2) != 0.0)
+        {
+            if(rpy(2)>= 1.57 && rpy(2) <3.14)
+            { // x != 0, y=0, z!=0 CORRECT
+
+                rpy(1) =0;
+                rpy(2) =0;
+                quaternions << get_quaternion_rechts(rpy), get_quaternion_hinten(rpy), get_quaternion_oben(rpy), get_quaternion_vorne(rpy), get_quaternion_unten(rpy), get_quaternion_links(rpy);
+            }
+            else if(rpy(2) <= -1.57 && rpy(2) > -3.14)
+            {
+
+                rpy(1) =0;
+                rpy(2) =0;
+                quaternions << get_quaternion_links(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy), get_quaternion_hinten(rpy), get_quaternion_unten(rpy), get_quaternion_rechts(rpy);
+            }
+        }
+        else
+        {
+            rpy(1) = 0;
+            quaternions <<  get_quaternion_hinten(rpy),get_quaternion_links(rpy),get_quaternion_oben(rpy) , get_quaternion_rechts(rpy) ,get_quaternion_unten(rpy) ,get_quaternion_vorne(rpy);
+        }
+    }
+    else{
+        // ?
+    }
+    return quaternions;
+
+}
+
+MatrixXd quaternion_z(MatrixXd rpy)
+{ //CORRECT
+    MatrixXd quaternions(6,4);
+    quaternions<< get_quaternion_unten(rpy),get_quaternion_links(rpy),get_quaternion_hinten(rpy), get_quaternion_rechts(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy);
+    return quaternions;
+
+}
+
 MatrixXd sort_quaternion(MatrixXd rpy){ // ROLL =
     MatrixXd quaternions(6,4);
     if (rpy(0) == 0.0 && rpy(1) == 0.0 && rpy(2) == 0.0){
         quaternions<< get_quaternion_unten(rpy),get_quaternion_links(rpy),get_quaternion_hinten(rpy), get_quaternion_rechts(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy);
     } // no rot
 
+
+    if(rpy(0) != 0.0){
+      quaternions <<  quaternion_x_y_z(rpy);
+    }
+
+    if(rpy(0) ==0.0 && rpy(1) != 0.0){
+        quaternions << quaternion_y_z(rpy);
+    }
+    if(rpy(0) == 0.0 && rpy(1) == 0.0 && rpy(2) != 0.0){
+        quaternions << quaternion_z(rpy);
+    }
+
+/*
     if (rpy(0) == 0.0 && rpy(1) == 0.0 && rpy(2) != 0.0){ // 0, 0, z achse != 0.0
         //if(abs(rpy(2))>=0 && abs(rpy(2)) < 1.57){  // -1.57 < z < 1.57
             //unten, links, hinten, rechts, vorne, oben
             quaternions<< get_quaternion_unten(rpy),get_quaternion_links(rpy),get_quaternion_hinten(rpy), get_quaternion_rechts(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy);
-       /* }else if(rpy(2)>= 1.57 && rpy(2) < 3.14){
+
+
+        }else if(rpy(2)>= 1.57 && rpy(2) < 3.14){
             //unten, vorne, left, hinten, rechts, oben
             quaternions << get_quaternion_unten(rpy),get_quaternion_hinten(rpy), get_quaternion_rechts(rpy), get_quaternion_vorne(rpy), get_quaternion_links(rpy), get_quaternion_oben(rpy);
 
@@ -273,10 +504,10 @@ MatrixXd sort_quaternion(MatrixXd rpy){ // ROLL =
         }else{
             // ERROR CHECK CASES? + 3.14 ??
         }
-*/
+
     }
 
-    if (rpy(0) == 0.0 && rpy(1) != 0.0 && rpy(2) == 0.0){ // 0, y achse != 0.0, 0
+    if (rpy(0) == 0.0 && rpy(1) != 0.0 && rpy(2) == 0.0){ // 0, y achse != 0.0, 0 // todo z axis !?
         if(abs(rpy(1))>=0 && abs(rpy(1)) < 1.57){  // -1.57 < z < 1.57
             //unten, links, hinten, rechts, vorne, oben
             quaternions << get_quaternion_unten(rpy), get_quaternion_links(rpy), get_quaternion_hinten(rpy), get_quaternion_rechts(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy);
@@ -284,32 +515,32 @@ MatrixXd sort_quaternion(MatrixXd rpy){ // ROLL =
             //hinten, left, oben, rechts, unten, vorne
             rpy(1) -=1.57;
             quaternions << get_quaternion_vorne(rpy), get_quaternion_links(rpy), get_quaternion_unten(rpy), get_quaternion_rechts(rpy), get_quaternion_oben(rpy), get_quaternion_hinten(rpy);
+
+                if(rpy(2)>= 1.57 && rpy(2) <3.14){ // x != 0, y=0, z!=0
+                    quaternions << get_quaternion_vorne(rpy), get_quaternion_unten(rpy), get_quaternion_rechts(rpy),get_quaternion_oben(rpy), get_quaternion_links(rpy), get_quaternion_hinten(rpy);
+
+                }else if(rpy(2) <= -1.57 && rpy(2) > -3.14){
+                    quaternions << get_quaternion_vorne(rpy), get_quaternion_oben(rpy), get_quaternion_links(rpy), get_quaternion_unten(rpy), get_quaternion_rechts(rpy), get_quaternion_hinten(rpy);
+                }
+
         }else if(rpy(1) <= -1.57 && rpy(1) > -3.14){
             // vorne, left, unten, rechts, oben, hinten
             rpy(1) -=1.57;
             quaternions <<  get_quaternion_hinten(rpy), get_quaternion_links(rpy),get_quaternion_oben(rpy) , get_quaternion_rechts(rpy), get_quaternion_unten(rpy),get_quaternion_vorne(rpy);
-        }else{
-            // ERROR CHECK CASES? + 3.14
-        }
-    }
 
+                if(rpy(2)>= 1.57 && rpy(2) <3.14){ // x != 0, y=0, z!=0
+                    quaternions << get_quaternion_hinten(rpy), get_quaternion_oben(rpy), get_quaternion_rechts(rpy), get_quaternion_unten(rpy), get_quaternion_links(rpy), get_quaternion_vorne(rpy);
 
-    if (rpy(0) != 0.0 && rpy(1) == 0.0 && rpy(2) == 0.0){ // x achse != 0, 0, 0
-        if(abs(rpy(0))>=0 && abs(rpy(0)) < 1.57){  // -1.57 < z < 1.57
-            //unten, links, hinten, rechts, vorne, oben
-            quaternions << get_quaternion_unten(rpy), get_quaternion_links(rpy), get_quaternion_hinten(rpy),get_quaternion_rechts(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy);
-        }else if(rpy(0)>= 1.57 && rpy(0) < 3.14){
-            //left, oben, hinten, unten, vorne, rechts
-            quaternions << get_quaternion_rechts(rpy), get_quaternion_unten(rpy), get_quaternion_hinten(rpy), get_quaternion_oben(rpy), get_quaternion_vorne(rpy), get_quaternion_links(rpy);
+                }else if(rpy(2) <= -1.57 && rpy(2) > -3.14){
+                    quaternions << get_quaternion_hinten(rpy), get_quaternion_unten(rpy), get_quaternion_links(rpy), get_quaternion_oben(rpy), get_quaternion_rechts(rpy), get_quaternion_vorne(rpy);
 
-        }else if(rpy(0) <= -1.57 && rpy(0) > -3.14){
-            // rechts, unten, hinten, oben, vorne, left
-            quaternions << get_quaternion_links(rpy), get_quaternion_oben(rpy), get_quaternion_hinten(rpy),get_quaternion_unten(rpy), get_quaternion_vorne(rpy), get_quaternion_rechts(rpy);
+                }
 
         }else{
             // ERROR CHECK CASES? + 3.14
         }
     }
+*/
 
     // TODO CHECK DIFFERENT ROTATIONS + COMBINATIONS OF THEM (F.E. 0,1.57,1.57) AND SO ON, -> HARDCODE AS ABOVE BUT, FIX 3.14 AND ELSE CASE BEFORE THAT
     std::cout << quaternions << std::endl;
@@ -536,4 +767,3 @@ void create_txt_from_urdf(){
     Py_Finalize();
 
 }
-
