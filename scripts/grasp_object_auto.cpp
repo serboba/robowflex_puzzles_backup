@@ -6,41 +6,33 @@
 // Created by serboba on 05.09.21.
 //
 
+//
+// Created by serboba 19.11.21.
+//
+
 #include <chrono>
 #include <thread>
 
-#include <ompl/geometric/SimpleSetup.h>
 #include <ompl/geometric/planners/rrt/RRTConnect.h>
 #include <ompl/geometric/planners/kpiece/KPIECE1.h>
 //#include <ompl/geometric/planners/rrt/RRT.h>
-#include <ompl/geometric/planners/sst/SST.h>
+//#include <ompl/geometric/planners/sst/SST.h>
 
 #include <robowflex_library/builder.h>
-#include <robowflex_library/detail/fetch.h>
 #include <robowflex_library/log.h>
-#include <robowflex_library/planning.h>
 #include <robowflex_library/robot.h>
 #include <robowflex_library/scene.h>
-#include <robowflex_library/tf.h>
 #include <robowflex_library/util.h>
-
-
 #include <ompl/base/goals/GoalLazySamples.h>
-#include <ompl/base/Constraint.h>
-#include <ompl/geometric/SimpleSetup.h>
-
-#include <moveit_msgs/MotionPlanRequest.h>
-
 #include <robowflex_library/class_forward.h>
-
-
 #include <robowflex_dart/gui.h>
 #include <robowflex_dart/planning.h>
 #include <robowflex_dart/robot.h>
-#include <robowflex_dart/space.h>
 #include <robowflex_dart/tsr.h>
 #include <robowflex_dart/world.h>
+
 #include <robowflex_dart/point_collector.h>
+#include <robowflex_dart/conversion_functions.h>
 #include <robowflex_dart/Object.h>
 
 
@@ -62,8 +54,8 @@ int main(int argc, char **argv)
                                              "/home/serboba/Desktop/blenderFLEX/fetch3.srdf");
 
     auto door_dart = darts::loadMoveItRobot("myfirst",
-                                            "/home/serboba/Desktop/blenderFLEX/cube_scene.urdf",
-                                            "/home/serboba/Desktop/blenderFLEX/cube_scene.srdf");
+                                            "/home/serboba/rb_ws/devel/lib/robowflex_dart/revolute.urdf",
+                                            "/home/serboba/rb_ws/devel/lib/robowflex_dart/revolute.srdf");
 
     auto fetch_name = fetch_dart->getName();
     auto door_name = door_dart->getName();
@@ -72,12 +64,10 @@ int main(int argc, char **argv)
     world->addRobot(door_dart);
 
     create_objects_from_urdf();
-
-
     /* NEVER CHANGE THIS ROBOT LOADING STRUCTURE UNTIL HERE !!!! */
     darts::Window window(world);
 
-    const auto &strech_normal = [&](Eigen::MatrixXd &normal_vec){ // test?
+    const auto &strech_normal = [&](Eigen::MatrixXd &normal_vec){ // add normal to the pos we calculated because wrist not positioned right
         for(int i = 0; i < 3 ;i++){
             if(normal_vec(0,i) == 0.0)
                 continue;
@@ -86,15 +76,15 @@ int main(int argc, char **argv)
             else
                 normal_vec(0,i) -=0.01;
         }
+        std::cout<< "SELECTED NORMAL VEC: " << normal_vec << std::endl;
     };
 
-    const auto &get_start_state = [&](darts::PlanBuilder &builder_, std::vector<double> &config){ // test?
+    const auto &get_start_state = [&](darts::PlanBuilder &builder_, std::vector<double> &config){ // to secure the start state
         Eigen::VectorXd start_config = builder_.getStartConfiguration();
         config.resize(start_config.size());
         Eigen::VectorXd::Map(&config[0], start_config.size()) = start_config;
 
     };
-
 
     const auto &evaluate_pos = [&](Eigen::MatrixXd &pose){
         darts::PlanBuilder builder(world);
@@ -106,8 +96,9 @@ int main(int argc, char **argv)
         Eigen::MatrixXd quaternion = pose.block(0, 3, 1, 4);
         double l = 0.0;
 
-        while(!found_pose && l<=0.30){ // HOW TO SET L VALUE??
+        while(!found_pose && l<=0.30){ // HOW TO SET L VALUE?? l = stretching factor for normal
             l = l+ 0.01; // todo adjust L ? find optimal L ? how to set optimal L ?
+
             strech_normal(normal_v);
             Eigen::MatrixXd new_position = position + normal_v;
 
@@ -130,9 +121,7 @@ int main(int argc, char **argv)
 
             std::vector<double> config_vec;
             get_start_state(builder,config_vec);
-
-            ompl::base::PlannerStatus solved;
-
+            
             darts::TSR::Specification goal_spec2;  //
             goal_spec2.setFrame(fetch_name, "wrist_roll_link", "move_x_axis");
             goal_spec2.setPoseFromWorld(world);
@@ -147,10 +136,9 @@ int main(int argc, char **argv)
 
             ompl::base::ScopedState<> goal_state(builder.space);
             builder.ss->getSpaceInformation().get()->getStateSpace()->copyFromReals(goal_state.get(),config_vec);
-        //    std::cout << "SATISFIES BOUNDS ?? " << builder.info->satisfiesBounds(goal_state.get()) << std::endl;
-        //    std::cout << "IS VALID?S ?? " << builder.info->isValid(goal_state.get()) << std::endl;
-
-        //    if (builder.info->satisfiesBounds(goal_state.get()) && builder.info->isValid(goal_state.get()))
+            //    std::cout << "SATISFIES BOUNDS ?? " << builder.info->satisfiesBounds(goal_state.get()) << std::endl;
+            //    std::cout << "IS VALID?S ?? " << builder.info->isValid(goal_state.get()) << std::endl;
+            //    if (builder.info->satisfiesBounds(goal_state.get()) && builder.info->isValid(goal_state.get()))
             if ( builder.info->isValid(goal_state.get()))
             {
                 found_pose=true;
@@ -160,16 +148,14 @@ int main(int argc, char **argv)
                 pose = result;
                 OMPL_DEBUG("NEW POSE VECTOR");
                 std::cout << pose << std::endl;
-                //builder.setStartConfiguration(config);
+                
             }else{
                 OMPL_DEBUG("FALSE INVALID STATE");
-                //builder.setStartConfiguration(config);
             }
 
         }
 
     };
-
 
     const auto get_pose = [&](Object &obj,MatrixXd &pose_m, int &surf_no){
 
@@ -179,12 +165,11 @@ int main(int argc, char **argv)
         int temp_no = -1;
         while(!guard){ // IF WE COULD FIND A NEW POSE VALID POSE -> GUARD TRUE (POSE WRITTEN IN TEMP2)
             Eigen::Map<MatrixXd> temp(pose_matrix.data(),1,7);
-            //std::cout << "POSE : " << pose_matrix << std::endl;
             pose_matrix = get_pose_object(obj);
-            temp_no = pose_matrix(10);
-            evaluate_pos(pose_matrix);
+            temp_no = pose_matrix(10); // last index of pose matrix is the selected surf no , pose matrix :point,quaternion,normal,surf_no
+            evaluate_pos(pose_matrix); // check if we can plan to the point/reach the point
             temp2 = pose_matrix.block(0,0,1,7);
-            if(temp.isApprox(temp2) == 0) // IF EQUAL WE DIDNT FIND VALID POSE
+            if(temp.isApprox(temp2) == 0) // if == 0, means old pose != new pose so evaluate pos changed pose-> we found a valid pose, otherwise pose wont be changed
                 guard=true;
         }
         pose_m = temp2;
@@ -217,27 +202,32 @@ int main(int argc, char **argv)
 
     };
 
-    const auto &get_pos_rot_from_frame = [&](Vector3d &position,MatrixXd &rotation,std::vector<double> degrees,Object obj, int surf_no){
+    const auto &get_pos_rot_from_frame = [&](Vector3d &position,MatrixXd &rotation,Eigen::Vector3d &degrees,Object obj, int surf_no){
         darts::TSR::Specification pos_spec;
         pos_spec.setFrame(fetch_name,"wrist_roll_link", "move_x_axis");
         pos_spec.setPoseFromWorld(world);
-        position = get_rotated_vertex(degrees,pos_spec.getPosition(),obj.joint_xyz);
+        
+        std::cout << "ACTUAL ROT : " << obj.actual_rotation << std::endl;
+        std::cout << "WANTED ROT : " << vec_to_matrix(degrees) << std::endl;
 
-        MatrixXd rpy_(1,3);
-        handle_rotation(obj.actual_rotation,degrees,rpy_);
-        rotation = new_rotation_quaternion(rpy_,surf_no);
+        position = get_rotated_vertex(vec_to_matrix(degrees),pos_spec.getPosition(),obj.joint_xyz);
+        std::cout << "OLD POSITION: " << pos_spec.getPosition() << std::endl;
+        std::cout << "NEW POSITION: " << position << std::endl;
+        std::cout << "OLD ROTATION: " << pos_spec.getRotation().w() <<"," << pos_spec.getRotation().x() << "," << pos_spec.getRotation().y() <<"," << pos_spec.getRotation().z() << std::endl;
+        rotation = new_rotation_quaternion(vec_to_matrix(degrees),pos_spec.getRotation(),surf_no);
+
+        std::cout << "NEW ROTATION: " << rotation << std::endl;
 
     };
-
 
     const auto &plan_to_grasp = [&](Object &obj, int &surf_no) {
         MatrixXd pose_m(1,11);
         bool flag = false;
-        int counter = 0; // count tries
+        //int counter = 0; // count tries
         while(!flag){
 
             get_pose(obj, pose_m, surf_no);
-            /*
+            /* TODO ?
             counter = 0;
             while(pose_m.cols()>8 && counter <=3){
                 get_pose(pose_m, object_no);
@@ -255,6 +245,7 @@ int main(int argc, char **argv)
             darts::TSR::Specification goal_spec;
             goal_spec.setFrame(fetch_name, "wrist_roll_link", "move_x_axis");
             goal_spec.setPose(pose_m); // HOP
+            std::cout<< "SETTING POSE : " << pose_m << std::endl;
 
             //goal_spec.print(std::cout);
             auto goal_tsr = std::make_shared<darts::TSR>(world, goal_spec);
@@ -284,7 +275,7 @@ int main(int argc, char **argv)
         }
     };
 
-    const auto &plan_to_rotate_rpy = [&](Object &obj, bool &flag, int axis, double value, int surf_no) { // TODO TAKE DEGREES AS INPUT
+    const auto &plan_to_rotate_rpy = [&](Object &obj, bool &flag, Eigen::Vector3d &degrees, int surf_no) { // TODO TAKE DEGREES AS INPUT
         darts::PlanBuilder builder(world);
         builder.addGroup(fetch_name, GROUP_X);
         builder.addGroup(door_name, obj.group_name);
@@ -293,8 +284,7 @@ int main(int argc, char **argv)
 
         Eigen::MatrixXd rotation;
         Eigen::Vector3d position;
-        std::vector<double> degrees = {0.0,0.0,-1.57};
-
+std::cout <<   "SURFF NO :" <<   surf_no << std::endl;
         get_pos_rot_from_frame(position,rotation,degrees,obj, surf_no);
 
         darts::TSR::Specification con_spec;
@@ -310,7 +300,6 @@ int main(int argc, char **argv)
         goal_spec.setFrame(fetch_name,"wrist_roll_link","move_x_axis");
         goal_spec.setPosition(position);
         goal_spec.setRotation(rotation(0),rotation(1),rotation(2),rotation(3));
-
 
         auto goal_tsr = std::make_shared<darts::TSR>(world, goal_spec);
         auto goal = builder.getGoalTSR(goal_tsr);
@@ -335,7 +324,7 @@ int main(int argc, char **argv)
             RBX_INFO("Found solution!");
             window.animatePath(builder, builder.getSolutionPath());
             flag = true;
-            update_object_position(obj,axis,value);
+            //update_object_position(obj,axis,value);
         }
         else{
             RBX_WARN("No solution found");
@@ -358,12 +347,10 @@ int main(int argc, char **argv)
         auto rotation = pos_spec.getRotation();
         Eigen::Vector3d position = pos_spec.getPosition();
 
-
         darts::TSR::Specification con_spec;
         con_spec.setBase(door_name, obj.link_name);
         con_spec.setTarget(fetch_name,"wrist_roll_link");
         con_spec.setPoseFromWorld(world);
-
         auto cons_tsr = std::make_shared<darts::TSR>(world,con_spec);
         builder.addConstraint(cons_tsr);
 
@@ -374,15 +361,11 @@ int main(int argc, char **argv)
         handle_axis(axis,value,position);
         goal_spec.setPosition(position);
         goal_spec.setRotation(rotation);
-
-        //std::cout<< "GOAL" <<    std::endl;
-        //goal_spec.print(std::cout);
         auto goal_tsr = std::make_shared<darts::TSR>(world, goal_spec);
         auto goal = builder.getGoalTSR(goal_tsr);
         goal->setThreshold(0.001); // maybe find better threshold?
         builder.setGoal(goal);
 
-        //std::this_thread::sleep_for(std::chrono::milliseconds(5000));
         auto rrt = std::make_shared<ompl::geometric::KPIECE1>(builder.info);
         //  rrt->setRange(0.10);
         builder.ss->setPlanner(rrt);
@@ -410,42 +393,39 @@ int main(int argc, char **argv)
 
 
     window.run([&] {
-       // create_txt_from_urdf();
+       //  create_txt_from_urdf();
         std::vector<Object> obj_s = get_objects();
         std::this_thread::sleep_for(std::chrono::milliseconds(2000));
         bool flag = false;
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-
-        double threshold_multiplier = 1.0;
         int chosen_surface_no;
-        while(!flag){
-            plan_to_grasp(obj_s[0],chosen_surface_no); // door1
-            //plan_to_move_xyz_axis(obj_s[0],flag,0,0.2);
-            plan_to_rotate_rpy(obj_s[0],flag,0,1.57, chosen_surface_no);
-        }
+        std::vector<Eigen::Vector3d> degrees;
+        Eigen::Vector3d vec1;
+        vec1 << 0.0,1.57, 0.0;
+        Eigen::Vector3d vec2;
+        vec2 << 0.0, 0.0, 1.57;
+        Eigen::Vector3d vec3;
+        vec3 << -1.57,0.0, 0.0;
+        Eigen::Vector3d vec4;
+        vec4 << 0.0,0.0, -1.57;
+        degrees.push_back(vec1);
+        degrees.push_back(vec2);
+        degrees.push_back(vec3);
+        degrees.push_back(vec4);
+        for(int i =0; i< obj_s.size() ; i ++){
+            while(!flag){
+                plan_to_grasp(obj_s[i],chosen_surface_no); // door1
+                //plan_to_move_xyz_axis(obj_s[0],flag,0,0.2);
+                std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+                plan_to_rotate_rpy(obj_s[i],flag,degrees[i], chosen_surface_no);
+            }
 
-        std::cout << "OUTSIDE TODAYYY : " << obj_s[0].actual_position << std::endl;
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-        flag=false;
-/*
-        while(!flag) {
-            plan_to_grasp(3); // door2
-            plan_to_move_xyz_axis("doorgr2", "door2","door_joint2", flag, 0, 0.2);
-        }
             std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+            flag=false;
+        }
 
-        flag = false;
-        while(!flag) {
-            plan_to_grasp(1); // cube
-            plan_to_move_xyz_axis("cube_gr", "cube1","cube_joint", flag, 1, -0.75);
-       }
-*/
-        });
-
+    });
+    
+    
     return 0;
 }
-
-
-
