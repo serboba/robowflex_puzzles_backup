@@ -11,11 +11,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <random>
-
-
 #include <Eigen/Dense>
 #include <robowflex_library/util.h>
 #include <robowflex_dart/point_collector.h>
+#include <robowflex_dart/quaternion_factory.h>
+#include <robowflex_dart/convert_functions.h>
 #include <robowflex_dart/Object.h>
 #include <tf2/LinearMath/Quaternion.h>
 
@@ -33,7 +33,7 @@ MatrixXd get_object_vertices(Vector3d joint_pos, Vector3d object_size){
     MatrixXd vertices(8,3);
     vertices <<
              //unten
-             joint_pos.x()-object_size.x(), joint_pos.y()-object_size.y(), joint_pos.z()-object_size.z(), //links hinten    0
+            joint_pos.x()-object_size.x(), joint_pos.y()-object_size.y(), joint_pos.z()-object_size.z(), //links hinten    0
             joint_pos.x()+object_size.x(), joint_pos.y()-object_size.y(), joint_pos.z()-object_size.z(), //links vorne     1
             joint_pos.x()-object_size.x(), joint_pos.y()+object_size.y(), joint_pos.z()-object_size.z(), // rechts hinten  2
             joint_pos.x()+object_size.x(), joint_pos.y()+object_size.y(), joint_pos.z()-object_size.z(), // rechts vorne   3
@@ -46,86 +46,10 @@ MatrixXd get_object_vertices(Vector3d joint_pos, Vector3d object_size){
     return vertices;
 }
 
-Quaterniond get_quaternion_from_euler(float yaw, float pitch, float roll){
-    Quaterniond q;
-    q =  AngleAxisd (yaw,Vector3d::UnitZ())*AngleAxisd (pitch,Vector3d::UnitY()) *AngleAxisd (roll,Vector3d::UnitX());
-    return q;
-}
-Eigen::MatrixXd rpy_to_quaternion(double roll, double pitch, double yaw){
-    tf2::Quaternion q_new;
-    q_new.setRPY(roll,pitch,yaw);
-    Eigen::MatrixXd quaternion_(1,4);
-    quaternion_ << q_new.getW(), q_new.getX(), q_new.getY(), q_new.getZ();
-    return quaternion_;
-}
-
-tf2::Quaternion eigen_to_tfquaternion(Eigen::MatrixXd quaternion){
-    tf2::Quaternion q_;
-    q_.setW(quaternion(0));
-    q_.setX(quaternion(1));
-    q_.setY(quaternion(2));
-    q_.setZ(quaternion(3));
-    return q_;
-}
-tf2::Quaternion eigen_to_tfquaternion(Eigen::Quaterniond quaternion){
-    tf2::Quaternion q_;
-    q_.setW(quaternion.w());
-    q_.setX(quaternion.x());
-    q_.setY(quaternion.y());
-    q_.setZ(quaternion.z());
-    return q_;
-}
-
-Eigen::Quaterniond matrix_to_quaternion(Eigen::MatrixXd matrix){
-    Quaterniond q;
-    q.w() = matrix(0);
-    q.x() = matrix(1);
-    q.y() = matrix(2);
-    q.z() = matrix(3);
-    return q;
-}
-
-Eigen::Quaterniond tf_to_eigen_quaternion(tf2::Quaternion quaternion){
-    Eigen::Quaterniond q_;
-    q_.w() = quaternion.getW();
-    q_.x() = quaternion.getX();
-    q_.y() = quaternion.getY();
-    q_.z() = quaternion.getZ();
-    return q_;
-}
-
-Eigen::MatrixXd tf_to_eigen_matrix_q(tf2::Quaternion quaternion){
-    Eigen::MatrixXd q_;
-    q_(0) = quaternion.getW();
-    q_(1) = quaternion.getX();
-    q_(2) = quaternion.getY();
-    q_(2) = quaternion.getZ();
-    return q_;
-}
-
-
-std::vector<double> eigenvector_to_std(Vector3d vec){
-    std::vector<double> degree;
-    degree.resize(vec.size());
-    VectorXd::Map(&degree[0],vec.size()) = vec;
-    return degree;
-}
-
-MatrixXd vec_to_matrix(Vector3d vec){
-    MatrixXd m(1,3);
-    m << vec[0],vec[1],vec[2];
-    return m;
-}
-
-
-MatrixXd quaternion_to_euler(Quaterniond q){
-    return q.toRotationMatrix().eulerAngles(2,1,0);
-}
 
 MatrixXd get_rotated_vertex(Vector3d obj_rpy, Vector3d point, Vector3d joint_pos ){
 
     MatrixXd q1 = rpy_to_quaternion(obj_rpy[0],obj_rpy[1],obj_rpy[2]);
-
     return (joint_pos + matrix_to_quaternion(q1)*(point-joint_pos));
     //return (joint_pos+ get_quaternion_from_euler(degrees[2],degrees[1],degrees[0])*(point-joint_pos));
 }
@@ -165,7 +89,7 @@ MatrixXd get_middle_points(MatrixXd vertices){
 MatrixXd get_surface_equation(MatrixXd vertices){
     MatrixXd surface_equation(6,9);
     surface_equation <<
-                     vertices.row(0), vertices.row(1)- vertices.row(0), vertices.row(2)- vertices.row(0), // grundflaeche
+            vertices.row(0), vertices.row(1)- vertices.row(0), vertices.row(2)- vertices.row(0), // grundflaeche
             vertices.row(0), vertices.row(4)- vertices.row(0), vertices.row(1)- vertices.row(0), // seite links
             vertices.row(1), vertices.row(5)- vertices.row(1), vertices.row(3)- vertices.row(1), //seite vorne
             vertices.row(2), vertices.row(3)- vertices.row(2), vertices.row(6)- vertices.row(2), //seite rechts
@@ -210,270 +134,16 @@ MatrixXd get_normal_of_plane(MatrixXd surface_equation){
 
         normals.row(i) << n_v;
     }
-    //std::cout << "NORMALS BEFORE ADJUST" << std::endl;
-    //std::cout << normals << std::endl;
     return adjust_normals(normals);
 }
 
 
-MatrixXd get_quaternion_unten(MatrixXd rpy){
-    std::cout << "MATRIX RPY " << rpy << std::endl;
-    MatrixXd q_(1,4);
-    q_ << rpy_to_quaternion(rpy(0),rpy(1)-M_PI*0.5,rpy(2));  // unten
-                   std::cout <<"CALC QUATERNION " << q_ << std::endl;
-
-            return q_;
-
-}
-MatrixXd get_quaternion_links(MatrixXd rpy){
-    MatrixXd q_(1,4);
-    q_ << rpy_to_quaternion(rpy(0),rpy(1),rpy(2)+M_PI*0.5);  // links
-           return q_;
-}
-MatrixXd get_quaternion_hinten(MatrixXd rpy){
-    MatrixXd q_(1,4);
-    q_ << rpy_to_quaternion(rpy(0),rpy(1)-M_PI,rpy(2));      // hinten
-    return q_;
-
-}
-MatrixXd get_quaternion_rechts(MatrixXd rpy){
-    MatrixXd q_(1,4);
-    q_ << rpy_to_quaternion(rpy(0),rpy(1),rpy(2)-M_PI*0.5);  // rechts
-    return q_;
-}
-MatrixXd get_quaternion_vorne(MatrixXd rpy){
-    MatrixXd q_(1,4);
-    q_ << rpy_to_quaternion(rpy(0),rpy(1),rpy(2));           // vorne
-    return q_;
-}
-MatrixXd get_quaternion_oben(MatrixXd rpy){
-    MatrixXd q_(1,4);
-    q_ << rpy_to_quaternion(rpy(0),rpy(1)+M_PI*0.5,rpy(2));
-    return q_;
-}
-
-MatrixXd quaternion_x_y_z(MatrixXd rpy){
-    MatrixXd quaternions(6,4);
-     // x achse != 0, 0, 0
-
-     if(rpy(0)!= 0.0 && abs(rpy(0)) < 1.57)
-     {
-         if(rpy(1) == 0.0 && rpy(2) ==0.0)
-         { // all values zero except x + between -1.57 < x < 1.57 FAIL  (ROLL<-> YAW ? FIX)
-             quaternions << get_quaternion_unten(rpy), get_quaternion_links(rpy), get_quaternion_hinten(rpy),get_quaternion_rechts(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy);
-         }
-     }
-     else if(rpy(0)>= 1.57 && rpy(0) < 3.14)
-     {
-         if(rpy(1) != 0.0)
-         {
-             if(rpy(1) >= 1.57 && rpy(1) < 3.14)
-             { // 1.57 1.57 0 CORRECT
-                 rpy(1) = 0;
-                 rpy(0) = 0;
-                 std::cout << "BURADAAAA" << std::endl;
-                 quaternions << get_quaternion_rechts(rpy),get_quaternion_vorne(rpy), get_quaternion_unten(rpy), get_quaternion_hinten(rpy),get_quaternion_oben(rpy),get_quaternion_links(rpy)  ;
-
-             }
-             else if(rpy(1) <= -1.57 && rpy(1) > -3.14)
-             { // 1.57 -1.57 0 CORRECT
-                 rpy(1) = 0;
-                 rpy(0) = 0;
-                 quaternions << get_quaternion_rechts(rpy),get_quaternion_hinten(rpy), get_quaternion_oben(rpy) ,get_quaternion_vorne(rpy),get_quaternion_unten(rpy),get_quaternion_links(rpy);
-
-             }
-         }
-         else if(rpy(2) != 0.0)
-         {
-             if(rpy(2)>= 1.57 && rpy(2) <3.14)
-             { // x != 0, y=0, z!=0 CORRECT
-                 rpy(2) = 0;
-                 rpy(0) = 0;
-                 quaternions <<get_quaternion_vorne(rpy),get_quaternion_unten(rpy),get_quaternion_rechts(rpy), get_quaternion_oben(rpy), get_quaternion_links(rpy),get_quaternion_hinten(rpy) ;
-             }
-             else if(rpy(2) <= -1.57 && rpy(2) > -3.14)
-             { // CORRECT
-                 rpy(2) = 0;
-                 rpy(0) = 0;
-                 quaternions <<get_quaternion_hinten(rpy),get_quaternion_unten(rpy),get_quaternion_links(rpy), get_quaternion_oben(rpy), get_quaternion_rechts(rpy),get_quaternion_vorne(rpy) ;
-             }
-         }
-         else
-         { // 1.57 0 0 CORRECT
-             quaternions << get_quaternion_rechts(rpy), get_quaternion_unten(rpy), get_quaternion_hinten(rpy), get_quaternion_oben(rpy), get_quaternion_vorne(rpy), get_quaternion_links(rpy);
-         }
-     }
-     else if(rpy(0) <= -1.57 && rpy(0) > -3.14)
-     {
-         if(rpy(1)!= 0.0)
-         {
-             if(rpy(1) >= 1.57 && rpy(1) < 3.14)
-             { // x!= 0, y!=0, z!=0 CORRECT
-                 // rpy -= 1.57 ?
-                 rpy(1) = 0;
-                 rpy(0) = 0;
-                 quaternions << get_quaternion_links(rpy),  get_quaternion_hinten(rpy),get_quaternion_unten(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy), get_quaternion_rechts(rpy);
-             }
-             else if(rpy(1) <= -1.57 && rpy(1) > -3.14)
-             { // x!= 0, y!=0, z!=0 CORRECT
-                 rpy(1) = 0;
-                 rpy(0) = 0;
-                 quaternions << get_quaternion_links(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy), get_quaternion_hinten(rpy), get_quaternion_unten(rpy), get_quaternion_rechts(rpy);
-             }
-
-         }else if(rpy(2) != 0.0)
-         {
-             if(rpy(2)>= 1.57 && rpy(2) <3.14)
-             { // x != 0, y=0, z!=0 CORRECT
-                 rpy(2) = 0;
-                 rpy(0) = 0;
-                 quaternions << get_quaternion_hinten(rpy),get_quaternion_oben(rpy), get_quaternion_rechts(rpy), get_quaternion_unten(rpy), get_quaternion_links(rpy),get_quaternion_vorne(rpy);
-             }
-             else if(rpy(2) <= -1.57 && rpy(2) > -3.14)
-             { // CORRECT
-                 rpy(2) = 0;
-                 rpy(0) = 0;
-                 quaternions << get_quaternion_vorne(rpy),get_quaternion_oben(rpy), get_quaternion_links(rpy), get_quaternion_unten(rpy), get_quaternion_rechts(rpy),get_quaternion_hinten(rpy);
-             }
-         }
-         else // -1.57 0 0 CORRECT
-         {
-             quaternions << get_quaternion_links(rpy), get_quaternion_oben(rpy), get_quaternion_hinten(rpy),get_quaternion_unten(rpy), get_quaternion_vorne(rpy), get_quaternion_rechts(rpy);
-         }
-     }
-     else{
-         // ??
-     }
-
-     /*
-         if(rpy(0)!= 0  && abs(rpy(0)) < 1.57 ){  // -1.57 < z < 1.57
-            //unten, links, hinten, rechts, vorne, oben
-            quaternions << get_quaternion_unten(rpy), get_quaternion_links(rpy), get_quaternion_hinten(rpy),get_quaternion_rechts(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy);
-        }else if(rpy(0)>= 1.57 && rpy(0) < 3.14){
-            //left, oben, hinten, unten, vorne, rechts
-            if(rpy(1) ==0.0 && rpy(2) ==0.0){
-                quaternions << get_quaternion_rechts(rpy), get_quaternion_unten(rpy), get_quaternion_hinten(rpy), get_quaternion_oben(rpy), get_quaternion_vorne(rpy), get_quaternion_links(rpy);
-            }
-            if(rpy(2)>= 1.57 && rpy(2) <3.14){ // x != 0, y=0, z!=0
-                quaternions << get_quaternion_rechts(rpy),get_quaternion_hinten(rpy),get_quaternion_oben(rpy), get_quaternion_vorne(rpy), get_quaternion_unten(rpy), get_quaternion_links(rpy);
-            }else if(rpy(2) <= -1.57 && rpy(2) > -3.14){
-                quaternions << get_quaternion_rechts(rpy),get_quaternion_vorne(rpy), get_quaternion_unten(rpy),get_quaternion_hinten(rpy), get_quaternion_oben(rpy), get_quaternion_links(rpy);
-            }
-
-            if(rpy(1) >= 1.57 && rpy(1) < 3.14){ // x!= 0, y!=0, z!=0
-                quaternions << get_quaternion_hinten(rpy),get_quaternion_unten(rpy),get_quaternion_links(rpy), get_quaternion_oben(rpy), get_quaternion_rechts(rpy),get_quaternion_vorne(rpy);
-                // rpy -= 1.57 ?
-            }else if(rpy(1) <= -1.57 && rpy(1) > -3.14){ // x!= 0, y!=0, z!=0
-                quaternions << get_quaternion_vorne(rpy), get_quaternion_unten(rpy), get_quaternion_rechts(rpy),get_quaternion_oben(rpy), get_quaternion_links(rpy), get_quaternion_hinten(rpy);
-            }
-
-            }else if(rpy(0) <= -1.57 && rpy(0) > -3.14){
-                            // rechts, unten, hinten, oben, vorne, left
-                            quaternions << get_quaternion_links(rpy), get_quaternion_oben(rpy), get_quaternion_hinten(rpy),get_quaternion_unten(rpy), get_quaternion_vorne(rpy), get_quaternion_rechts(rpy);
-
-                            if(rpy(2)>= 1.57 && rpy(2) <3.14){ // x != 0, y=0, z!=0
-                                quaternions << get_quaternion_links(rpy),get_quaternion_hinten(rpy), get_quaternion_unten(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy),get_quaternion_rechts(rpy);
-                            }else if(rpy(2) <= -1.57 && rpy(2) > -3.14){
-                                quaternions << get_quaternion_links(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy), get_quaternion_hinten(rpy), get_quaternion_unten(rpy), get_quaternion_rechts(rpy);
-                            }
-
-                            if(rpy(1) >= 1.57 && rpy(1) < 3.14){ // x!= 0, y!=0, z!=0
-                                // rpy -= 1.57 ?
-                                quaternions << get_quaternion_hinten(rpy), get_quaternion_oben(rpy), get_quaternion_rechts(rpy), get_quaternion_unten(rpy), get_quaternion_links(rpy), get_quaternion_vorne(rpy);
-                            }else if(rpy(1) <= -1.57 && rpy(1) > -3.14){ // x!= 0, y!=0, z!=0
-                                quaternions << get_quaternion_vorne(rpy), get_quaternion_oben(rpy), get_quaternion_links(rpy), get_quaternion_unten(rpy), get_quaternion_rechts(rpy), get_quaternion_hinten(rpy);
-                            }
-
-        }else{
-            // ERROR CHECK CASES? + 3.14
-        }
-*/
-    return quaternions;
-
-}
-
-MatrixXd quaternion_y_z(MatrixXd rpy)
-{
-    MatrixXd quaternions(6,4);
-    if(rpy(1)!= 0.0 && abs(rpy(1)) < 1.57)
-    {
-        if(rpy(2) ==0.0)
-        { // all values zero except y NEEDS FIX
-            quaternions << get_quaternion_unten(rpy), get_quaternion_links(rpy), get_quaternion_hinten(rpy), get_quaternion_rechts(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy);
-        }
-    }
-    else if(rpy(1)>= 1.57 && rpy(1) < 3.14)
-    {
-        //hinten, left, oben, rechts, unten, vorne
-
-        if(rpy(2)!= 0.0)
-        {
-            if(rpy(2)>= 1.57 && rpy(2) <3.14)
-            { // x != 0, y=0, z!=0 CORRECT
-                rpy(1) =0;
-                rpy(2) =0;
-                quaternions << get_quaternion_links(rpy), get_quaternion_hinten(rpy), get_quaternion_unten(rpy),get_quaternion_vorne(rpy), get_quaternion_oben(rpy), get_quaternion_rechts(rpy);
-
-            }
-            else if(rpy(2) <= -1.57 && rpy(2) > -3.14)
-            { //   CORRECT
-                rpy(1) =0;
-                rpy(2) =0;
-                quaternions << get_quaternion_rechts(rpy), get_quaternion_vorne(rpy), get_quaternion_unten(rpy),get_quaternion_hinten(rpy), get_quaternion_oben(rpy), get_quaternion_links(rpy);
-            }
-        }else{ // CORRECT
-
-            rpy(1) = 0;
-            quaternions << get_quaternion_vorne(rpy), get_quaternion_links(rpy), get_quaternion_unten(rpy), get_quaternion_rechts(rpy), get_quaternion_oben(rpy), get_quaternion_hinten(rpy);
-        }
-    }
-    else if(rpy(1) <= -1.57 && rpy(1) > -3.14)
-    {
-        // vorne, left, unten, rechts, oben, hinten
-        if(rpy(2) != 0.0)
-        {
-            if(rpy(2)>= 1.57 && rpy(2) <3.14)
-            { // x != 0, y=0, z!=0 CORRECT
-
-                rpy(1) =0;
-                rpy(2) =0;
-                quaternions << get_quaternion_rechts(rpy), get_quaternion_hinten(rpy), get_quaternion_oben(rpy), get_quaternion_vorne(rpy), get_quaternion_unten(rpy), get_quaternion_links(rpy);
-            }
-            else if(rpy(2) <= -1.57 && rpy(2) > -3.14)
-            {
-
-                rpy(1) =0;
-                rpy(2) =0;
-                quaternions << get_quaternion_links(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy), get_quaternion_hinten(rpy), get_quaternion_unten(rpy), get_quaternion_rechts(rpy);
-            }
-        }
-        else
-        {
-            rpy(1) = 0;
-            quaternions <<  get_quaternion_hinten(rpy),get_quaternion_links(rpy),get_quaternion_oben(rpy) , get_quaternion_rechts(rpy) ,get_quaternion_unten(rpy) ,get_quaternion_vorne(rpy);
-        }
-    }
-    else{
-        // ?
-    }
-    return quaternions;
-
-}
-
-MatrixXd quaternion_z(MatrixXd rpy)
-{ //CORRECT
-    MatrixXd quaternions(6,4);
-    quaternions<< get_quaternion_unten(rpy),get_quaternion_links(rpy),get_quaternion_hinten(rpy), get_quaternion_rechts(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy);
-    return quaternions;
-
-}
 
 MatrixXd sort_quaternion(MatrixXd rpy){ // ROLL =
     MatrixXd quaternions(6,4);
     if (rpy(0) == 0.0 && rpy(1) == 0.0 && rpy(2) == 0.0){
         quaternions<< get_quaternion_unten(rpy),get_quaternion_links(rpy),get_quaternion_hinten(rpy), get_quaternion_rechts(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy);
     } // no rot
-
 
     if(rpy(0) != 0.0){
       quaternions <<  quaternion_x_y_z(rpy);
@@ -486,62 +156,6 @@ MatrixXd sort_quaternion(MatrixXd rpy){ // ROLL =
         quaternions << quaternion_z(rpy);
     }
 
-/*
-    if (rpy(0) == 0.0 && rpy(1) == 0.0 && rpy(2) != 0.0){ // 0, 0, z achse != 0.0
-        //if(abs(rpy(2))>=0 && abs(rpy(2)) < 1.57){  // -1.57 < z < 1.57
-            //unten, links, hinten, rechts, vorne, oben
-            quaternions<< get_quaternion_unten(rpy),get_quaternion_links(rpy),get_quaternion_hinten(rpy), get_quaternion_rechts(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy);
-
-
-        }else if(rpy(2)>= 1.57 && rpy(2) < 3.14){
-            //unten, vorne, left, hinten, rechts, oben
-            quaternions << get_quaternion_unten(rpy),get_quaternion_hinten(rpy), get_quaternion_rechts(rpy), get_quaternion_vorne(rpy), get_quaternion_links(rpy), get_quaternion_oben(rpy);
-
-            }else if(rpy(2) <= -1.57 && rpy(2) > -3.14){
-            // unten , hinten, rechts, vorne, links, oben
-            quaternions << get_quaternion_unten(rpy), get_quaternion_vorne(rpy), get_quaternion_links(rpy), get_quaternion_hinten(rpy), get_quaternion_rechts(rpy), get_quaternion_oben(rpy);
-
-        }else{
-            // ERROR CHECK CASES? + 3.14 ??
-        }
-
-    }
-
-    if (rpy(0) == 0.0 && rpy(1) != 0.0 && rpy(2) == 0.0){ // 0, y achse != 0.0, 0 // todo z axis !?
-        if(abs(rpy(1))>=0 && abs(rpy(1)) < 1.57){  // -1.57 < z < 1.57
-            //unten, links, hinten, rechts, vorne, oben
-            quaternions << get_quaternion_unten(rpy), get_quaternion_links(rpy), get_quaternion_hinten(rpy), get_quaternion_rechts(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy);
-        }else if(rpy(1)>= 1.57 && rpy(1) < 3.14){
-            //hinten, left, oben, rechts, unten, vorne
-            rpy(1) -=1.57;
-            quaternions << get_quaternion_vorne(rpy), get_quaternion_links(rpy), get_quaternion_unten(rpy), get_quaternion_rechts(rpy), get_quaternion_oben(rpy), get_quaternion_hinten(rpy);
-
-                if(rpy(2)>= 1.57 && rpy(2) <3.14){ // x != 0, y=0, z!=0
-                    quaternions << get_quaternion_vorne(rpy), get_quaternion_unten(rpy), get_quaternion_rechts(rpy),get_quaternion_oben(rpy), get_quaternion_links(rpy), get_quaternion_hinten(rpy);
-
-                }else if(rpy(2) <= -1.57 && rpy(2) > -3.14){
-                    quaternions << get_quaternion_vorne(rpy), get_quaternion_oben(rpy), get_quaternion_links(rpy), get_quaternion_unten(rpy), get_quaternion_rechts(rpy), get_quaternion_hinten(rpy);
-                }
-
-        }else if(rpy(1) <= -1.57 && rpy(1) > -3.14){
-            // vorne, left, unten, rechts, oben, hinten
-            rpy(1) -=1.57;
-            quaternions <<  get_quaternion_hinten(rpy), get_quaternion_links(rpy),get_quaternion_oben(rpy) , get_quaternion_rechts(rpy), get_quaternion_unten(rpy),get_quaternion_vorne(rpy);
-
-                if(rpy(2)>= 1.57 && rpy(2) <3.14){ // x != 0, y=0, z!=0
-                    quaternions << get_quaternion_hinten(rpy), get_quaternion_oben(rpy), get_quaternion_rechts(rpy), get_quaternion_unten(rpy), get_quaternion_links(rpy), get_quaternion_vorne(rpy);
-
-                }else if(rpy(2) <= -1.57 && rpy(2) > -3.14){
-                    quaternions << get_quaternion_hinten(rpy), get_quaternion_unten(rpy), get_quaternion_links(rpy), get_quaternion_oben(rpy), get_quaternion_rechts(rpy), get_quaternion_vorne(rpy);
-
-                }
-
-        }else{
-            // ERROR CHECK CASES? + 3.14
-        }
-    }
-*/
-
     // TODO CHECK DIFFERENT ROTATIONS + COMBINATIONS OF THEM (F.E. 0,1.57,1.57) AND SO ON, -> HARDCODE AS ABOVE BUT, FIX 3.14 AND ELSE CASE BEFORE THAT
     std::cout << quaternions << std::endl;
     return quaternions;
@@ -550,13 +164,13 @@ MatrixXd sort_quaternion(MatrixXd rpy){ // ROLL =
 
 
 MatrixXd translate_rotations(MatrixXd rpy){
-
      return sort_quaternion(rpy);
 }
 
 MatrixXd new_rotation_quaternion(MatrixXd rpy,Eigen::Quaterniond q_original, int surface_no){ // rpy sum = actual rot + wanted rot
+   /*
     tf2::Quaternion q_rot;
-    switch (surface_no) {
+    switch (surface_no) { // TODO : CHANGE RPY DEPENDING HOW AND WHICH DIRECTION IS THE ROTATION F.E. OBJECT ROTATED IN Z, ROTATION IN Y-> IS NOT HEADING/PITCH -> MUST BE ROLL OR STH CHECK
         case 0: case 1: case 2: case 15: case 16: case 17:          // unten
             q_rot = eigen_to_tfquaternion(rpy_to_quaternion(rpy(0),rpy(1),rpy(2)));             //unten
             break;
@@ -564,10 +178,14 @@ MatrixXd new_rotation_quaternion(MatrixXd rpy,Eigen::Quaterniond q_original, int
             q_rot = eigen_to_tfquaternion(rpy_to_quaternion(rpy(0),rpy(1),rpy(2)));          // oben
             break;
     }
+    */
+    tf2::Quaternion q_rot;
+    q_rot = eigen_to_tfquaternion(rpy_to_quaternion(rpy(0),rpy(1),rpy(2)));             //unten
+
     tf2::Quaternion q_org = eigen_to_tfquaternion(q_original);
     tf2::Quaternion q_new;
     q_new = q_rot*q_org;
-    q_new.normalize();
+   // q_new.normalize();
     return tf_to_eigen_matrix_q(q_new);
 
 }
@@ -576,25 +194,17 @@ MatrixXd new_rotation_quaternion(MatrixXd rpy,Eigen::Quaterniond q_original, int
 Eigen::Quaterniond rotate_quaternion(double roll, double pitch, double yaw, Quaterniond old_q){
     tf2::Quaternion q_rot;
     q_rot.setRPY(roll,pitch,yaw);
-    tf2::Quaternion q_old;
-    q_old.setW(old_q.w());
-    q_old.setX(old_q.x());
-    q_old.setY(old_q.y());
-    q_old.setZ(old_q.z());
+    tf2::Quaternion q_old = eigen_to_tfquaternion(old_q);
+
     tf2::Quaternion q_new;
     q_new = q_rot*q_old;
-    q_new.normalize();
-    Eigen::Quaterniond q_res;
-    q_res.w() = q_new.getW();
-    q_res.x() = q_new.getX();
-    q_res.y() = q_new.getY();
-    q_res.z() = q_new.getZ();
+    //q_new.normalize();
+    Eigen::Quaterniond q_res =tf_to_eigen_quaternion(q_new);
     return q_res;
 }
 
 
 std::vector<double> read_into_vector(std::string str){
-
     std::istringstream ss(str);
     std::string s;
     std::vector<double> vec;
@@ -610,7 +220,6 @@ void read_srdf_file(std::string filename){
     std::ifstream inFile(str); // CHANGE W FILENAME
     if(inFile.is_open()){
         std::string line;
-        int i =0;
         while(std::getline(inFile,line)){
             std::stringstream ss(line);
             std::getline(ss, joint_name, ',');
@@ -662,8 +271,8 @@ void read_urdf_file(std::string filename){
 }
 
 void create_objects_from_urdf(){
-    read_srdf_file("grasp_srdf.txt");
-    read_urdf_file("grasp.txt");
+    read_srdf_file("revolute_srdf.txt");
+    read_urdf_file("revolute.txt");
     //std::vector<Object> objects_;
     for(int i = 0; i < joint_positions.size(); i++){
         Vector3d joint_xyz(joint_positions[i].data());
@@ -682,7 +291,6 @@ void create_objects_from_urdf(){
 
 MatrixXd match_quaternion_to_surface(int quaternion_no, int surface_no, MatrixXd rpy_matrix){
     MatrixXd quaternions = translate_rotations(rpy_matrix); // calculate corresponding quaternions for pose (all poses)
-    std::cout << "YO ? <" << quaternions << std::endl;
     MatrixXd  q = quaternions.row(surface_no).block(0,quaternion_no*4,1,4); // quat row for obj is surface_no*3 + quaternion no
     return q;
 }
@@ -735,16 +343,13 @@ MatrixXd get_random_point_from_surface(MatrixXd surface_equation_matrix, MatrixX
 
 Eigen::MatrixXd get_pose_object(Object &obj){
 
-
     obj.actual_position = get_rotated_vertex(obj.actual_rotation, (obj.link_xyz + obj.joint_xyz), obj.joint_xyz); // ADJUST JOINT POS W RESPECT TO LINK XYZ
-
     std::cout <<  "Actual position : " << obj.actual_position << std::endl;
     std::cout <<  "Actual rotation : " << obj.actual_rotation << std::endl;
     auto vertices = get_rotated_object(obj.actual_rotation, obj.actual_position,obj.link_size);
     MatrixXd surface_equation = get_surface_equation(get_rotated_object(obj.actual_rotation, obj.actual_position,obj.link_size));
     MatrixXd normals = get_normal_of_plane(surface_equation);
     MatrixXd rpy_matrix= vec_to_matrix(obj.link_rpy+obj.joint_rpy);
-
     MatrixXd random_pose = get_random_point_from_surface(surface_equation,rpy_matrix,normals);
 
     return random_pose;
@@ -767,3 +372,4 @@ void create_txt_from_urdf(){
     Py_Finalize();
 
 }
+
