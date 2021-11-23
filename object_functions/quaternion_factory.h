@@ -16,6 +16,7 @@ MatrixXd rpy_to_quaternion(double roll, double pitch, double yaw);
 MatrixXd quaternion_x_y_z(MatrixXd rpy);
 MatrixXd quaternion_y_z(MatrixXd rpy);
 MatrixXd quaternion_z(MatrixXd rpy);
+MatrixXd match_deg_to_rpy(MatrixXd rpy, MatrixXd axis);
 MatrixXd get_quaternion_unten(MatrixXd rpy);
 MatrixXd get_quaternion_links(MatrixXd rpy);
 MatrixXd get_quaternion_hinten(MatrixXd rpy);
@@ -24,4 +25,5 @@ MatrixXd get_quaternion_vorne(MatrixXd rpy);
 MatrixXd get_quaternion_oben(MatrixXd rpy);
 
 #endif //ROBOWFLEX_DART_QUATERNION_FACTORY_H
+
 

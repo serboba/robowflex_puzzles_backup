@@ -218,3 +218,306 @@ MatrixXd quaternion_z(MatrixXd rpy)
     return quaternions;
 
 }
+
+MatrixXd match_deg_to_rpy(MatrixXd rpy, MatrixXd axis){ // todo +add wanted rotation not only 90 deg
+    MatrixXd degree(1,3);
+    if(rpy(0) == 0 && rpy(1) == 0 && rpy(2) == 0){
+        if(axis(0) == 1)
+            degree << 1.57, 0.0, 0.0;
+        if(axis(1) == 1)
+            degree << 0.0, 1.57, 0.0;
+        if(axis(2) == 1)
+            degree << 0.0, 0.0, 1.57;
+        if(axis(0) == -1)
+            degree << -1.57, 0.0, 0.0;
+        if(axis(1) == -1)
+            degree << 0.0, -1.57, 0.0;
+        if(axis(2) == -1)
+            degree << 0.0, 0.0, -1.57;
+    }
+    if(rpy(0) == 1.57 && rpy(1) == 0 && rpy(2) == 0){
+        if(axis(0) == 1)
+            degree << 1.57, 0.0, 0.0;
+        if(axis(1) == 1)
+            degree << 0.0, 0.0, 1.57;
+        if(axis(2) == 1)
+            degree << 0.0, -1.57,0.0;
+        if(axis(0) == -1)
+            degree << -1.57, 0.0, 0.0;
+        if(axis(1) == -1)
+            degree << 0.0, 0.0, -1.57;
+        if(axis(2) == -1)
+            degree << 0.0, 1.57, 0.0;
+    }
+    if(rpy(0) == -1.57 && rpy(1) == 0 && rpy(2) == 0){
+       if(axis(0) == 1)
+            degree << 1.57, 0.0, 0.0;
+        if(axis(1) == 1)
+            degree << 0.0, 0.0, -1.57;
+        if(axis(2) == 1)
+            degree << 0.0, 1.57,0.0;
+        if(axis(0) == -1)
+            degree << -1.57, 0.0, 0.0;
+        if(axis(1) == -1)
+            degree << 0.0, 0.0, 1.57;
+        if(axis(2) == -1)
+            degree << 0.0, -1.57, 0.0;
+    }
+    if(rpy(0) == 0 && rpy(1) == 1.57 && rpy(2) == 0){
+        if(axis(0) == 1)
+            degree << 0.0,0.0,-1.57;
+        if(axis(1) == 1)
+            degree << 0.0,1.57,0.0;
+        if(axis(2) == 1)
+            degree << 1.57,0.0,0.0;
+        if(axis(0) == -1)
+            degree << 0.0,0.0,1.57;
+        if(axis(1) == -1)
+            degree << 0.0,-1.57,0.0;
+        if(axis(2) == -1)
+            degree << -1.57,0.0,0.0;
+    }
+    if(rpy(0) == 0 && rpy(1) == -1.57 && rpy(2) == 0){
+        if(axis(0) == 1)
+            degree << 0.0,0.0,1.57;
+        if(axis(1) == 1)
+            degree << 0.0,1.57,0.0;
+        if(axis(2) == 1)
+            degree << -1.57,0.0,0.0;
+        if(axis(0) == -1)
+            degree << 0.0,0.0,-1.57;
+        if(axis(1) == -1)
+            degree << 0.0,-1.57,0.0;
+        if(axis(2) == -1)
+            degree << 1.57,0.0,0.0;
+    }
+    if(rpy(0) == 0 && rpy(1) == 0 && rpy(2) == 1.57){
+        if(axis(0) == 1)
+            degree << 0.0,1.57,0.0;
+        if(axis(1) == 1)
+            degree << -1.57,0.0,0.0;
+        if(axis(2) == 1)
+            degree << 0.0,0.0,1.57;
+        if(axis(0) == -1)
+            degree << 0.0,-1.57,0.0;
+        if(axis(1) == -1)
+            degree << 1.57,0.0,0.0;
+        if(axis(2) == -1)
+            degree << 0.0,0.0,-1.57;
+
+    }
+    if(rpy(0) == 0 && rpy(1) == 0 && rpy(2) == -1.57){
+        if(axis(0) == 1)
+            degree << 0.0,-1.57,0.0;
+        if(axis(1) == 1)
+            degree << 1.57,0.0,0.0;
+        if(axis(2) == 1)
+            degree << 0.0,0.0,1.57;
+        if(axis(0) == -1)
+            degree << 0.0,1.57,0.0;
+        if(axis(1) == -1)
+            degree << -1.57,0.0,0.0;
+        if(axis(2) == -1)
+            degree << 0.0,0.0,-1.57;
+    }
+    if(rpy(0) == 1.57 && rpy(1) == 1.57 && rpy(2) == 0){
+        if(axis(0) == 1)
+            degree << 0.0,0.0,-1.57;
+        if(axis(1) == 1)
+            degree << 1.57,0.0,0.0;
+        if(axis(2) == 1)
+            degree << 0.0,-1.57,0.0;
+        if(axis(0) == -1)
+            degree << 0.0,0.0,1.57;
+        if(axis(1) == -1)
+            degree << -1.57,0.0,0.0;
+        if(axis(2) == -1)
+            degree << 0.0,1.57,0.0;
+    }
+    if(rpy(0) == 1.57 && rpy(1) == -1.57 && rpy(2) == 0){
+        if(axis(0) == 1)
+            degree << 0.0,0.0,1.57;
+        if(axis(1) == 1)
+            degree << -1.57,0.0,0.0;
+        if(axis(2) == 1)
+            degree << 0.0,-1.57,0.0;
+        if(axis(0) == -1)
+            degree << 0.0,0.0,-1.57;
+        if(axis(1) == -1)
+            degree << 1.57,0.0,0.0;
+        if(axis(2) == -1)
+            degree << 0.0,1.57,0.0;
+    }
+    if(rpy(0) == -1.57 && rpy(1) == 1.57 && rpy(2) == 0){
+        if(axis(0) == 1)
+            degree << 0.0,0.0,-1.57;
+        if(axis(1) == 1)
+            degree << -1.57,0.0,0.0;
+        if(axis(2) == 1)
+            degree << 0.0,1.57,0.0;
+        if(axis(0) == -1)
+            degree << 0.0,0.0,1.57;
+        if(axis(1) == -1)
+            degree << 1.57,0.0,0.0;
+        if(axis(2) == -1)
+            degree << 0.0,1.57,0.0;
+    }
+    if(rpy(0) == -1.57 && rpy(1) == -1.57 && rpy(2) == 0){
+        if(axis(0) == 1)
+            degree << 0.0,0.0,1.57;
+        if(axis(1) == 1)
+            degree << 1.57,0.0,0.0;
+        if(axis(2) == 1)
+            degree << 0.0,1.57,0.0;
+        if(axis(0) == -1)
+            degree << 0.0,0.0,-1.57;
+        if(axis(1) == -1)
+            degree << -1.57,0.0,0.0;
+        if(axis(2) == -1)
+            degree << 0.0,-1.57,0.0;
+    }
+    if(rpy(0) == 1.57 && rpy(1) == 0 && rpy(2) == 1.57){
+        if(axis(0) == 1)
+            degree << 0.0,1.57,0.0;
+        if(axis(1) == 1)
+            degree << 0.0,0.0,1.57;
+        if(axis(2) == 1)
+            degree << 1.57,0.0,0.0;
+        if(axis(0) == -1)
+            degree << 0.0,-1.57,0.0;
+        if(axis(1) == -1)
+            degree << 0.0,0.0,-1.57;
+        if(axis(2) == -1)
+            degree << -1.57,0.0,0.0;
+    }
+    if(rpy(0) == 1.57 && rpy(1) == 0 && rpy(2) == -1.57){
+        if(axis(0) == 1)
+            degree << 0.0,-1.57,0.0;
+        if(axis(1) == 1)
+            degree << 0.0,0.0,1.57;
+        if(axis(2) == 1)
+            degree << -1.57,0.0,0.0;
+        if(axis(0) == -1)
+            degree << 0.0,1.57,0.0;
+        if(axis(1) == -1)
+            degree << 0.0,0.0,-1.57;
+        if(axis(2) == -1)
+            degree << 1.57,0.0,0.0;
+    }
+    if(rpy(0) == -1.57 && rpy(1) == 0 && rpy(2) == 1.57){
+        if(axis(0) == 1)
+            degree << 0.0,1.57,0.0;
+        if(axis(1) == 1)
+            degree << 0.0,0.0,-1.57;
+        if(axis(2) == 1)
+            degree << -1.57,0.0,0.0;
+        if(axis(0) == -1)
+            degree << 0.0,-1.57,0.0;
+        if(axis(1) == -1)
+            degree << 0.0,0.0,1.57;
+        if(axis(2) == -1)
+            degree << 1.57,0.0,0.0;
+    }
+    if(rpy(0) == -1.57 && rpy(1) == 0 && rpy(2) == -1.57){
+        if(axis(0) == 1)
+            degree << 0.0,-1.57,0.0;
+        if(axis(1) == 1)
+            degree << 0.0,0.0,-1.57;
+        if(axis(2) == 1)
+            degree << 1.57,0.0,0.0;
+        if(axis(0) == -1)
+            degree << 0.0,1.57,0.0;
+        if(axis(1) == -1)
+            degree << 0.0,0.0,1.57;
+        if(axis(2) == -1)
+            degree << -1.57,0.0,0.0;
+    }
+    if(rpy(0) == 0 && rpy(1) == 1.57 && rpy(2) == 1.57){
+        if(axis(0) == 1)
+            degree << 0.0,0.0,-1.57;
+        if(axis(1) == 1)
+            degree << -1.57,0.0,0.0;
+        if(axis(2) == 1)
+            degree << 0.0,1.57,0.0;
+        if(axis(0) == -1)
+            degree << 0.0,0.0,1.57;
+        if(axis(1) == -1)
+            degree << 1.57,0.0,0.0;
+        if(axis(2) == -1)
+            degree << 0.0,1.57,0.0;
+    }
+    if(rpy(0) == 0 && rpy(1) == 1.57 && rpy(2) == -1.57){
+        if(axis(0) == 1)
+            degree << 0.0,0.0,-1.57;
+        if(axis(1) == 1)
+            degree << 1.57,0.0,0.0;
+        if(axis(2) == 1)
+            degree << 0.0,-1.57,0.0;
+        if(axis(0) == -1)
+            degree << 0.0,0.0,1.57;
+        if(axis(1) == -1)
+            degree << -1.57,0.0,0.0;
+        if(axis(2) == -1)
+            degree << 0.0,1.57,0.0;
+    }
+    if(rpy(0) == 0 && rpy(1) == -1.57 && rpy(2) == 1.57){
+        if(axis(0) == 1)
+            degree << 0.0,0.0,1.57;
+        if(axis(1) == 1)
+            degree << -1.57,0.0,0.0;
+        if(axis(2) == 1)
+            degree << 0.0,-1.57,0.0;
+        if(axis(0) == -1)
+            degree << 0.0,0.0,-1.57;
+        if(axis(1) == -1)
+            degree << 1.57,0.0,0.0;
+        if(axis(2) == -1)
+            degree << 0.0,1.57,0.0;
+    }
+    if(rpy(0) == 0 && rpy(1) == -1.57 && rpy(2) == -1.57){
+        if(axis(0) == 1)
+            degree << 0.0,0.0,1.57;
+        if(axis(1) == 1)
+            degree << 1.57,0.0,0.0;
+        if(axis(2) == 1)
+            degree << 0.0,1.57,0.0;
+        if(axis(0) == -1)
+            degree << 0.0,0.0,-1.57;
+        if(axis(1) == -1)
+            degree << -1.57,0.0,0.0;
+        if(axis(2) == -1)
+            degree << 0.0,-1.57,0.0;
+    }
+    if(rpy(0) == 0 && rpy(1) == 0 && rpy(2) == 1.57){
+        if(axis(0) == 1)
+                degree << 0.0,1.57,0.0;
+        if(axis(1) == 1)
+            degree << -1.57,0.0,0.0;
+        if(axis(2) == 1)
+            degree << 0.0,0.0,1.57;
+        if(axis(0) == -1)
+            degree << 0.0,-1.57,0.0;
+        if(axis(1) == -1)
+            degree << 1.57,0.0,0.0;
+        if(axis(2) == -1)
+            degree << 0.0,0.0,-1.57;
+    }
+    if(rpy(0) == 0 && rpy(1) == 0 && rpy(2) == -1.57){
+        if(axis(0) == 1)
+            degree << 0.0,-1.57,0.0;
+        if(axis(1) == 1)
+            degree << 1.57,0.0,0.0;
+        if(axis(2) == 1)
+            degree << 0.0,0.0,1.57;
+        if(axis(0) == -1)
+            degree << 0.0,1.57,0.0;
+        if(axis(1) == -1)
+            degree << 1.57,0.0,0.0;
+        if(axis(2) == -1)
+            degree << 0.0,0.0,-1.57;
+    }
+    return degree;
+
+}
+
+

@@ -33,6 +33,7 @@
 
 #include <robowflex_dart/point_collector.h>
 #include <robowflex_dart/conversion_functions.h>
+#include <robowflex_dart/quaternion_factory.h>
 #include <robowflex_dart/Object.h>
 
 
@@ -121,7 +122,7 @@ int main(int argc, char **argv)
 
             std::vector<double> config_vec;
             get_start_state(builder,config_vec);
-            
+
             darts::TSR::Specification goal_spec2;  //
             goal_spec2.setFrame(fetch_name, "wrist_roll_link", "move_x_axis");
             goal_spec2.setPoseFromWorld(world);
@@ -148,7 +149,7 @@ int main(int argc, char **argv)
                 pose = result;
                 OMPL_DEBUG("NEW POSE VECTOR");
                 std::cout << pose << std::endl;
-                
+
             }else{
                 OMPL_DEBUG("FALSE INVALID STATE");
             }
@@ -206,15 +207,16 @@ int main(int argc, char **argv)
         darts::TSR::Specification pos_spec;
         pos_spec.setFrame(fetch_name,"wrist_roll_link", "move_x_axis");
         pos_spec.setPoseFromWorld(world);
-        
+
         std::cout << "ACTUAL ROT : " << obj.actual_rotation << std::endl;
         std::cout << "WANTED ROT : " << vec_to_matrix(degrees) << std::endl;
+        MatrixXd rotvex = get_rotated_vertex(degrees,pos_spec.getPosition(),obj.joint_xyz);
 
-        position = get_rotated_vertex(vec_to_matrix(degrees),pos_spec.getPosition(),obj.joint_xyz);
+        position = get_rotated_vertex(degrees,pos_spec.getPosition(),obj.joint_xyz);
         std::cout << "OLD POSITION: " << pos_spec.getPosition() << std::endl;
         std::cout << "NEW POSITION: " << position << std::endl;
         std::cout << "OLD ROTATION: " << pos_spec.getRotation().w() <<"," << pos_spec.getRotation().x() << "," << pos_spec.getRotation().y() <<"," << pos_spec.getRotation().z() << std::endl;
-        rotation = new_rotation_quaternion(vec_to_matrix(degrees),pos_spec.getRotation(),surf_no);
+        rotation = new_rotation_quaternion(degrees,pos_spec.getRotation(),surf_no);
 
         std::cout << "NEW ROTATION: " << rotation << std::endl;
 
@@ -313,7 +315,7 @@ std::cout <<   "SURFF NO :" <<   surf_no << std::endl;
         builder.setup();
 
         goal->startSampling();
-        ompl::base::PlannerStatus solved = builder.ss->solve(240.0);
+        ompl::base::PlannerStatus solved = builder.ss->solve(120.0);
         goal->stopSampling();
 
         OMPL_DEBUG("HAVE EXACT SOLUTION PATH: ");
@@ -400,18 +402,12 @@ std::cout <<   "SURFF NO :" <<   surf_no << std::endl;
 
         int chosen_surface_no;
         std::vector<Eigen::Vector3d> degrees;
-        Eigen::Vector3d vec1;
-        vec1 << 0.0,1.57, 0.0;
-        Eigen::Vector3d vec2;
-        vec2 << 0.0, 0.0, 1.57;
-        Eigen::Vector3d vec3;
-        vec3 << -1.57,0.0, 0.0;
-        Eigen::Vector3d vec4;
-        vec4 << 0.0,0.0, -1.57;
-        degrees.push_back(vec1);
-        degrees.push_back(vec2);
-        degrees.push_back(vec3);
-        degrees.push_back(vec4);
+        for(int i=0; i<obj_s.size(); i++){
+            Eigen::Vector3d test = matrix_to_vec(match_deg_to_rpy(obj_s[i].actual_rotation,obj_s[i].joint_axis));
+            std::cout<< "RESULT TESTTTT: " << test << std::endl;
+            degrees.push_back(test);
+        }
+
         for(int i =0; i< obj_s.size() ; i ++){
             while(!flag){
                 plan_to_grasp(obj_s[i],chosen_surface_no); // door1
@@ -425,7 +421,7 @@ std::cout <<   "SURFF NO :" <<   surf_no << std::endl;
         }
 
     });
-    
-    
+
+
     return 0;
 }

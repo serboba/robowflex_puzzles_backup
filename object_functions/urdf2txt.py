@@ -66,7 +66,11 @@ def parse_urdf_file(root):
             origin_xyz = joint.find('origin').get('xyz')
             origin_rpy = joint.find('origin').get('rpy')
             j_name = joint.get('name')
-            j_line = j_name + ',' + origin_rpy + ',' + origin_xyz
+            j_type = joint.get('type')
+            j_axis = joint.find('axis').get('xyz')
+            j_lower_limit = joint.find('limit').get('lower')
+            j_upper_limit = joint.find('limit').get('upper')
+            j_line = j_name + ',' + origin_rpy + ',' + origin_xyz + '\n' + j_type + ',' + j_axis + '\n' + j_lower_limit+ ',' +j_upper_limit
             joints.append(j_line)
 
     merge = []
