@@ -36,5 +36,8 @@ std::vector<double> eigenvector_to_std(Vector3d vec);
 
 MatrixXd vec_to_matrix(Vector3d vec);
 
+MatrixXd stdvec_to_quat_matrix(std::vector<MatrixXd> quaternion_vec);
+
 Vector3d matrix_to_vec(MatrixXd mat);
 #endif //ROBOWFLEX_DART_CONVERSION_FUNCTIONS_H
+

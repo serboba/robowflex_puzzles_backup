@@ -151,7 +151,7 @@ int main(int argc, char **argv)
                 std::cout << pose << std::endl;
 
             }else{
-                OMPL_DEBUG("FALSE INVALID STATE");
+             //   OMPL_DEBUG("FALSE INVALID STATE");
             }
 
         }
@@ -167,7 +167,8 @@ int main(int argc, char **argv)
         while(!guard){ // IF WE COULD FIND A NEW POSE VALID POSE -> GUARD TRUE (POSE WRITTEN IN TEMP2)
             Eigen::Map<MatrixXd> temp(pose_matrix.data(),1,7);
             pose_matrix = get_pose_object(obj);
-            temp_no = pose_matrix(10); // last index of pose matrix is the selected surf no , pose matrix :point,quaternion,normal,surf_no
+            temp_no = pose_matrix(10);// last index of pose matrix is the selected surf no , pose matrix :point,quaternion,normal,surf_no
+            std::cout <<"temp no: " << temp_no;
             evaluate_pos(pose_matrix); // check if we can plan to the point/reach the point
             temp2 = pose_matrix.block(0,0,1,7);
             if(temp.isApprox(temp2) == 0) // if == 0, means old pose != new pose so evaluate pos changed pose-> we found a valid pose, otherwise pose wont be changed
@@ -188,37 +189,53 @@ int main(int argc, char **argv)
             OMPL_INFORM("INVALID AXIS");
     };
 
-    const auto &handle_rotation = [&](Eigen::MatrixXd obj_rot, std::vector<double> rot, Eigen::MatrixXd &new_rot){
-        new_rot << obj_rot(0)+rot[0] ,obj_rot(1)+rot[1],obj_rot(2)+rot[2];
-    };
-
     const auto &update_object_position = [&](Object &obj ,int axis, double value){
         obj.actual_position[axis] += value;
     };
 
-    const auto &update_object_rotation = [&](Object &obj ,int axis, double value){ // test?
+    const auto &update_object_rotation = [&](Object &obj ,int axis, double value){ // TODO
         std::cout << "OLD POSITION OF LINK : " << obj.actual_position << std::endl;
         obj.actual_position[axis] += value;
         std::cout << "NEW POSITION OF LINK : " << obj.actual_position << std::endl;
 
-    };
+    }; // TODO
 
-    const auto &get_pos_rot_from_frame = [&](Vector3d &position,MatrixXd &rotation,Eigen::Vector3d &degrees,Object obj, int surf_no){
+    const auto &get_pos_rot_from_frame = [&](Vector3d &position,MatrixXd &rotation,Eigen::Vector3d &degrees,Object obj, int surf_no){ // rotation with euler angles sorted X Z Y NOT XYZ fml
         darts::TSR::Specification pos_spec;
         pos_spec.setFrame(fetch_name,"wrist_roll_link", "move_x_axis");
         pos_spec.setPoseFromWorld(world);
+        pos_spec.print(std::cout);
+        degrees << 0.8,0,0;
 
-        std::cout << "ACTUAL ROT : " << obj.actual_rotation << std::endl;
-        std::cout << "WANTED ROT : " << vec_to_matrix(degrees) << std::endl;
-        MatrixXd rotvex = get_rotated_vertex(degrees,pos_spec.getPosition(),obj.joint_xyz);
+        MatrixXd new_degre = vec_to_matrix(obj.actual_rotation+ degrees);
+        MatrixXd quat = actual_quaternion(new_degre, surf_no);
+        std::cout<< "nEW DEGREE : " << new_degre << std::endl;
 
-        position = get_rotated_vertex(degrees,pos_spec.getPosition(),obj.joint_xyz);
-        std::cout << "OLD POSITION: " << pos_spec.getPosition() << std::endl;
-        std::cout << "NEW POSITION: " << position << std::endl;
-        std::cout << "OLD ROTATION: " << pos_spec.getRotation().w() <<"," << pos_spec.getRotation().x() << "," << pos_spec.getRotation().y() <<"," << pos_spec.getRotation().z() << std::endl;
-        rotation = new_rotation_quaternion(degrees,pos_spec.getRotation(),surf_no);
+        MatrixXd rotvex = get_rotated_vertex(degrees, pos_spec.getPosition(), obj.joint_xyz);
+        position = matrix_to_vec(rotvex);
+        std::cout << quat(0) <<"," << quat(1) <<"," << quat(2) << "," << quat(3) << std::endl;
 
-        std::cout << "NEW ROTATION: " << rotation << std::endl;
+        rotation = quat;
+        position = matrix_to_vec(rotvex);
+
+        std::cout << pos_spec.getPosition()[0] << "," << pos_spec.getPosition()[1] << ","<< pos_spec.getPosition()[2] << std::endl;
+        std::cout << position(0) << "," << position(1) << "," << position(2) << std::endl;
+        std::cout << "OLD ROTATION: " << pos_spec.getRotation().w() << "," << pos_spec.getRotation().x() <<","<<pos_spec.getRotation().y() <<","<< pos_spec.getRotation().z() << std::endl;
+        std::cout << "NEW ROTATION: " << rotation(0) <<"," << rotation(1) <<"," <<rotation(2) <<"," <<rotation(3)  << std::endl;
+
+        /*
+        tf2::Quaternion old_rot = eigen_to_tfquaternion(pos_spec.getRotation());
+        tf2::Quaternion result = tf2::Quaternion(tf2::Vector3(0,0,1),0.80) * old_rot;
+        rotation = tf_to_eigen_matrix_q(result);
+        std::cout << "OLD ROTATION: " << pos_spec.getRotation().w() << "," << pos_spec.getRotation().x() <<","<<pos_spec.getRotation().y() <<","<< pos_spec.getRotation().z() << std::endl; std::cout << "NEW ROTATION: " << rotation(0) <<"," << rotation(1) <<"," <<rotation(2) <<"," <<rotation(3)  << std::endl;
+
+
+        std::cout<< degrees<< std::endl;
+        std::cout << "OLD POSITION OF POINT: "<< pos_spec.getPosition() << std::endl;
+        MatrixXd rotvex = get_rotated_vertex(degrees, pos_spec.getPosition(), obj.joint_xyz);
+        position = matrix_to_vec(rotvex);
+        std::cout << "NEW POSITION OF POINT: "<< position << std::endl;
+*/
 
     };
 
@@ -227,7 +244,6 @@ int main(int argc, char **argv)
         bool flag = false;
         //int counter = 0; // count tries
         while(!flag){
-
             get_pose(obj, pose_m, surf_no);
             /* TODO ?
             counter = 0;
@@ -286,7 +302,7 @@ int main(int argc, char **argv)
 
         Eigen::MatrixXd rotation;
         Eigen::Vector3d position;
-std::cout <<   "SURFF NO :" <<   surf_no << std::endl;
+        std::cout <<   "SURFF NO :" <<   surf_no << std::endl;
         get_pos_rot_from_frame(position,rotation,degrees,obj, surf_no);
 
         darts::TSR::Specification con_spec;
@@ -315,7 +331,7 @@ std::cout <<   "SURFF NO :" <<   surf_no << std::endl;
         builder.setup();
 
         goal->startSampling();
-        ompl::base::PlannerStatus solved = builder.ss->solve(120.0);
+        ompl::base::PlannerStatus solved = builder.ss->solve(450.0);
         goal->stopSampling();
 
         OMPL_DEBUG("HAVE EXACT SOLUTION PATH: ");
@@ -333,7 +349,6 @@ std::cout <<   "SURFF NO :" <<   surf_no << std::endl;
             door_dart->setJoint(obj.joint_name,0.0);
         }
     };
-
 
     const auto &plan_to_move_xyz_axis = [&](Object &obj, bool &flag, int axis, double value) {
         darts::PlanBuilder builder(world);
@@ -398,17 +413,18 @@ std::cout <<   "SURFF NO :" <<   surf_no << std::endl;
        //  create_txt_from_urdf();
         std::vector<Object> obj_s = get_objects();
         std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-        bool flag = false;
 
+        bool flag = false;
         int chosen_surface_no;
+
         std::vector<Eigen::Vector3d> degrees;
-        for(int i=0; i<obj_s.size(); i++){
+        for(int i=0; i<obj_s.size(); i++){ //
             Eigen::Vector3d test = matrix_to_vec(match_deg_to_rpy(obj_s[i].actual_rotation,obj_s[i].joint_axis));
             std::cout<< "RESULT TESTTTT: " << test << std::endl;
             degrees.push_back(test);
         }
 
-        for(int i =0; i< obj_s.size() ; i ++){
+        for(int i =0; i< obj_s.size() ; i ++){ // todo adjust degrees
             while(!flag){
                 plan_to_grasp(obj_s[i],chosen_surface_no); // door1
                 //plan_to_move_xyz_axis(obj_s[0],flag,0,0.2);
@@ -421,7 +437,67 @@ std::cout <<   "SURFF NO :" <<   surf_no << std::endl;
         }
 
     });
-
+// todo integrate joint type from input f.e. if obj.j_type = "revolute" --> match_deg_to_py
 
     return 0;
 }
+/*
+      const auto &plan_to_move_on_the_ground = [&](Object &obj, bool &flag, int x_value, int y_value){ // ???
+
+        darts::PlanBuilder builder(world);
+        builder.addGroup(fetch_name, GROUP_X);
+        builder.addGroup(door_name, obj.group_name);
+        builder.setStartConfigurationFromWorld(); // already grasped object?
+
+        darts::TSR::Specification con_spec;
+        con_spec.setPoseFromWorld(world);
+        con_spec.setNoXPosTolerance();
+        con_spec.setNoYPosTolerance();
+        auto cons_tsr = std::make_shared<darts::TSR>(world,con_spec);
+        builder.addConstraint(cons_tsr);
+
+        builder.initialize();
+
+        auto rotation = con_spec.getRotation();
+        Eigen::Vector3d position = con_spec.getPosition();
+
+        darts::TSR::Specification goal_spec;
+        goal_spec.setFrame(fetch_name,"wrist_roll_link","move_x_axis");
+        handle_axis(0,x_value,position);
+        handle_axis(1,y_value,position);
+        goal_spec.setPosition(position);
+        goal_spec.setRotation(rotation);
+        auto goal_tsr = std::make_shared<darts::TSR>(world, goal_spec);
+        auto goal = builder.getGoalTSR(goal_tsr);
+        goal->setThreshold(0.001); // maybe find better threshold?
+        builder.setGoal(goal);
+
+        auto rrt = std::make_shared<ompl::geometric::KPIECE1>(builder.info);
+        //  rrt->setRange(0.10);
+        builder.ss->setPlanner(rrt);
+        builder.setup();
+
+        goal->startSampling();
+        ompl::base::PlannerStatus solved = builder.ss->solve(60.0);
+        goal->stopSampling();
+
+        OMPL_DEBUG("HAVE EXACT SOLUTION PATH: ");
+        std::cout << builder.ss->haveExactSolutionPath() << std::endl;
+
+        if (solved == ompl::base::PlannerStatus::EXACT_SOLUTION )
+        {
+            RBX_INFO("Found solution!");
+            window.animatePath(builder, builder.getSolutionPath());
+            flag = true;
+            update_object_position(obj,0,x_value);
+            update_object_position(obj,1,y_value);
+        }
+        else{
+            RBX_WARN("No solution found");
+            //door_dart->setJoint(obj.joint_name,0.0); // no joint? how to set back?
+        }
+
+
+    };
+
+ */

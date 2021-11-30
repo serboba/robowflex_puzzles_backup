@@ -21,7 +21,10 @@ std::vector<Object> get_objects();
 void set_objects(std::vector<Object> objects_);
 
 MatrixXd get_rotated_vertex(Vector3d obj_rpy, Vector3d point, Vector3d joint_pos );
+MatrixXd get_rotated_vertex(MatrixXd q1, Vector3d obj_rpy, Vector3d point, Vector3d joint_pos );
 Quaterniond get_quaternion_from_euler(float yaw, float pitch, float roll);
+
+//MatrixXd get_rotated_vertex(MatrixXd q1, Vector3d point, Vector3d joint_pos );
 
 
 MatrixXd new_rotation_quaternion(MatrixXd rpy, Quaterniond q_original, int surface_no);

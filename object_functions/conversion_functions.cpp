@@ -69,3 +69,11 @@ Vector3d matrix_to_vec(MatrixXd mat){
     vec << mat(0),mat(1),mat(2);
     return vec;
 }
+
+
+MatrixXd stdvec_to_quat_matrix(std::vector<MatrixXd> quaternion_vec){
+    MatrixXd mat(6,4);
+    mat << quaternion_vec[0], quaternion_vec[1], quaternion_vec[2], quaternion_vec[3], quaternion_vec[4], quaternion_vec[5];
+    return mat;
+}
+

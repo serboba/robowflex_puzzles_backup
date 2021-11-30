@@ -47,477 +47,186 @@ MatrixXd get_quaternion_oben(MatrixXd rpy){
     return q_;
 }
 
+MatrixXd rmv(MatrixXd rpy, MatrixXd quaternion){ // r = rotate m = missing v = value
+
+        tf2::Quaternion q_rot;
+        q_rot = eigen_to_tfquaternion(rpy_to_quaternion(rpy(0),rpy(1),rpy(2)));             //unten
+
+        tf2::Quaternion q_org = eigen_to_tfquaternion(quaternion);
+        tf2::Quaternion q_new;
+        q_new = q_rot*q_org;
+         q_new.normalize();
+        return tf_to_eigen_matrix_q(q_new);
+}
+
+// todo recursive? or better function maybe
+std::vector<MatrixXd> divide_rpy(int axis, MatrixXd rpy){
+    std::vector<MatrixXd> new_rpys;
+
+    MatrixXd temp_rpy(1,3);
+    temp_rpy.setZero();
+    if(abs(rpy(axis)) < 1.57){ // 0.90 1248 238 andere egal wir extrahieren nur den ersten wert
+        temp_rpy(axis) = rpy(axis);
+        new_rpys.push_back(temp_rpy);
+    }else if(abs(rpy(axis)) == 1.57){
+        temp_rpy(axis) = rpy(axis);
+        new_rpys.push_back(temp_rpy);
+    }else if(rpy(axis) > 1.57 && rpy(axis) < 3.14){ // 1.90
+        temp_rpy(axis) = 1.57;
+        new_rpys.push_back(temp_rpy);
+        temp_rpy.setZero();
+        temp_rpy(axis) = rpy(axis) - 1.57;
+        new_rpys.push_back(temp_rpy);
+    }else if(rpy(axis) < -1.57 && rpy(axis) > -3.14){
+        temp_rpy(axis) = -1.57;
+        new_rpys.push_back(temp_rpy);
+        temp_rpy.setZero();
+        temp_rpy(axis) = rpy(axis) + 1.57;
+        new_rpys.push_back(temp_rpy);
+    }else if(rpy(axis) > 3.14){
+        temp_rpy(axis) = 1.57;
+        new_rpys.push_back(temp_rpy);
+        new_rpys.push_back(temp_rpy);
+        temp_rpy(axis) = rpy(axis) - 3.14;
+        new_rpys.push_back(temp_rpy);
+        // todo 3.14 and over
+    }else if(rpy(axis) < -3.14){
+        temp_rpy(axis) = -1.57;
+        new_rpys.push_back(temp_rpy);
+        new_rpys.push_back(temp_rpy);
+        temp_rpy(axis) = rpy(axis) + 3.14;
+        new_rpys.push_back(temp_rpy);
+        // todo 3.14 and over
+    }else{
+
+    }
+    return new_rpys;
+
+}
+
+std::vector<MatrixXd> rpy_to_vector(MatrixXd rpy){
+
+    std::vector<MatrixXd> rpys;
+    for(int i = 0; i < 3 ; i++){
+        if(rpy(i) != 0.0){
+            std::vector<MatrixXd> r_ = divide_rpy(i,rpy);
+            rpys.insert(rpys.end(), r_.begin(), r_.end());
+        }
+    }
+    return rpys;
+}
+
+MatrixXd actual_quaternion(MatrixXd obj_rpy){
+    MatrixXd quaternion(1,4);
+    std::vector<MatrixXd> obj_rpys = rpy_to_vector(obj_rpy);
+    MatrixXd rp_new(1,3);
+    rp_new << 0.0, 0.0, 0.0;
+    quaternion << rpy_to_quaternion(rp_new(0),rp_new(1),rp_new(2));
+    for(int i= 0; i < obj_rpys.size() ; i++){
+            quaternion = rmv(obj_rpys[i],quaternion);
+            std::cout <<"YOOOOOOO QUAAATTT : " << quaternion;
+    }
+    return quaternion;
+}
+
+MatrixXd actual_quaternion(MatrixXd rot_rpy, int surf_no){
+    MatrixXd quaternion(1,4);
+    std::vector<MatrixXd> rot_rpys = rpy_to_vector(rot_rpy);
+    MatrixXd rp_new(1,3);
+    rp_new << 0.0, 0.0, 0.0;
+    switch (surf_no) {
+        case 0:
+            quaternion<< get_quaternion_unten(rp_new);
+            break;
+        case 1:
+            quaternion<< get_quaternion_links(rp_new);
+            break;
+        case 2:
+            quaternion<< get_quaternion_hinten(rp_new);
+            break;
+        case 3:
+            quaternion<< get_quaternion_rechts(rp_new);
+            break;
+        case 4:
+            quaternion<< get_quaternion_vorne(rp_new);
+            break;
+        case 5:
+            quaternion<< get_quaternion_oben(rp_new);
+            break;
+    }
+
+    for(int i= 0; i < rot_rpys.size() ; i++){
+        quaternion = rmv(rot_rpys[i],quaternion);
+        std::cout <<"YOOOOOOO QUAAATTT : " << quaternion;
+    }
+    return quaternion;
+}
+
 MatrixXd quaternion_x_y_z(MatrixXd rpy){
     MatrixXd quaternions(6,4);
-    // x achse != 0, 0, 0
+    std::vector<MatrixXd> new_rpys = rpy_to_vector(rpy);
 
-    if(rpy(0)!= 0.0 && abs(rpy(0)) < 1.57)
-    {
-        if(rpy(1) == 0.0 && rpy(2) ==0.0)
-        { // all values zero except x + between -1.57 < x < 1.57 FAIL  (ROLL<-> YAW ? FIX)
-            quaternions << get_quaternion_unten(rpy), get_quaternion_links(rpy), get_quaternion_hinten(rpy),get_quaternion_rechts(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy);
+    std::vector<MatrixXd> quats;
+    MatrixXd rp_new(1,3);
+    rp_new << 0.0, 0.0, 0.0;
+    quats.push_back(get_quaternion_unten(rp_new));
+    quats.push_back(get_quaternion_links(rp_new));
+    quats.push_back(get_quaternion_hinten(rp_new));
+    quats.push_back(get_quaternion_rechts(rp_new));
+    quats.push_back(get_quaternion_vorne(rp_new));
+    quats.push_back(get_quaternion_oben(rp_new));
+
+    for(int i= 0; i < new_rpys.size() ; i++){
+        for(int j = 0 ; j< 6 ; j++){
+            quats[j] = rmv(new_rpys[i],quats[j]);
         }
     }
-    else if(rpy(0)>= 1.57 && rpy(0) < 3.14)
-    {
-        if(rpy(1) != 0.0)
-        {
-            if(rpy(1) >= 1.57 && rpy(1) < 3.14)
-            { // 1.57 1.57 0 CORRECT
-                rpy(1) = 0;
-                rpy(0) = 0;
-                quaternions << get_quaternion_rechts(rpy),get_quaternion_vorne(rpy), get_quaternion_unten(rpy), get_quaternion_hinten(rpy),get_quaternion_oben(rpy),get_quaternion_links(rpy)  ;
-
-            }
-            else if(rpy(1) <= -1.57 && rpy(1) > -3.14)
-            { // 1.57 -1.57 0 CORRECT
-                rpy(1) = 0;
-                rpy(0) = 0;
-                quaternions << get_quaternion_rechts(rpy),get_quaternion_hinten(rpy), get_quaternion_oben(rpy) ,get_quaternion_vorne(rpy),get_quaternion_unten(rpy),get_quaternion_links(rpy);
-
-            }
-        }
-        else if(rpy(2) != 0.0)
-        {
-            if(rpy(2)>= 1.57 && rpy(2) <3.14)
-            { // x != 0, y=0, z!=0 CORRECT
-                rpy(2) = 0;
-                rpy(0) = 0;
-                quaternions <<get_quaternion_vorne(rpy),get_quaternion_unten(rpy),get_quaternion_rechts(rpy), get_quaternion_oben(rpy), get_quaternion_links(rpy),get_quaternion_hinten(rpy) ;
-            }
-            else if(rpy(2) <= -1.57 && rpy(2) > -3.14)
-            { // CORRECT
-                rpy(2) = 0;
-                rpy(0) = 0;
-                quaternions <<get_quaternion_hinten(rpy),get_quaternion_unten(rpy),get_quaternion_links(rpy), get_quaternion_oben(rpy), get_quaternion_rechts(rpy),get_quaternion_vorne(rpy) ;
-            }
-        }
-        else
-        { // 1.57 0 0 CORRECT
-            quaternions << get_quaternion_rechts(rpy), get_quaternion_unten(rpy), get_quaternion_hinten(rpy), get_quaternion_oben(rpy), get_quaternion_vorne(rpy), get_quaternion_links(rpy);
-        }
-    }
-    else if(rpy(0) <= -1.57 && rpy(0) > -3.14)
-    {
-        if(rpy(1)!= 0.0)
-        {
-            if(rpy(1) >= 1.57 && rpy(1) < 3.14)
-            { // x!= 0, y!=0, z!=0 CORRECT
-                // rpy -= 1.57 ?
-                rpy(1) = 0;
-                rpy(0) = 0;
-                quaternions << get_quaternion_links(rpy),  get_quaternion_hinten(rpy),get_quaternion_unten(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy), get_quaternion_rechts(rpy);
-            }
-            else if(rpy(1) <= -1.57 && rpy(1) > -3.14)
-            { // x!= 0, y!=0, z!=0 CORRECT
-                rpy(1) = 0;
-                rpy(0) = 0;
-                quaternions << get_quaternion_links(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy), get_quaternion_hinten(rpy), get_quaternion_unten(rpy), get_quaternion_rechts(rpy);
-            }
-
-        }else if(rpy(2) != 0.0)
-        {
-            if(rpy(2)>= 1.57 && rpy(2) <3.14)
-            { // x != 0, y=0, z!=0 CORRECT
-                rpy(2) = 0;
-                rpy(0) = 0;
-                quaternions << get_quaternion_hinten(rpy),get_quaternion_oben(rpy), get_quaternion_rechts(rpy), get_quaternion_unten(rpy), get_quaternion_links(rpy),get_quaternion_vorne(rpy);
-            }
-            else if(rpy(2) <= -1.57 && rpy(2) > -3.14)
-            { // CORRECT
-                rpy(2) = 0;
-                rpy(0) = 0;
-                quaternions << get_quaternion_vorne(rpy),get_quaternion_oben(rpy), get_quaternion_links(rpy), get_quaternion_unten(rpy), get_quaternion_rechts(rpy),get_quaternion_hinten(rpy);
-            }
-        }
-        else // -1.57 0 0 CORRECT
-        {
-            quaternions << get_quaternion_links(rpy), get_quaternion_oben(rpy), get_quaternion_hinten(rpy),get_quaternion_unten(rpy), get_quaternion_vorne(rpy), get_quaternion_rechts(rpy);
-        }
-    }
-    else{
-        // ??
-    }
-
-    return quaternions;
-
+    MatrixXd quaternion_ = stdvec_to_quat_matrix(quats);
+    return quaternion_;
 }
 
-MatrixXd quaternion_y_z(MatrixXd rpy)
-{
-    MatrixXd quaternions(6,4);
-    if(rpy(1)!= 0.0 && abs(rpy(1)) < 1.57)
-    {
-        if(rpy(2) ==0.0)
-        { // all values zero except y NEEDS FIX
-            quaternions << get_quaternion_unten(rpy), get_quaternion_links(rpy), get_quaternion_hinten(rpy), get_quaternion_rechts(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy);
-        }
+MatrixXd match_deg_to_rpy_new(MatrixXd rpy, MatrixXd obj_rpy, int surface_no){
+
+    MatrixXd q_(1,4);
+
+    MatrixXd rp_new(1,3);
+    rp_new << 0.0, 0.0, 0.0;
+
+    std::vector<MatrixXd> new_rpys = rpy_to_vector(rpy);
+    std::vector<MatrixXd> obj_rpys = rpy_to_vector(obj_rpy);
+
+
+    switch(surface_no){
+        case 0:
+            q_= get_quaternion_unten(rp_new);
+            break;
+        case 1:
+
+            q_= get_quaternion_links(rp_new);
+            break;
+        case 2:
+
+            q_= get_quaternion_hinten(rp_new);
+            break;
+        case 3:
+
+            q_= get_quaternion_rechts(rp_new);
+            break;
+        case 4:
+
+            q_= get_quaternion_vorne(rp_new);
+            break;
+        case 5:
+            q_= get_quaternion_oben(rp_new);
+            break;
     }
-    else if(rpy(1)>= 1.57 && rpy(1) < 3.14)
-    {
-        //hinten, left, oben, rechts, unten, vorne
 
-        if(rpy(2)!= 0.0)
-        {
-            if(rpy(2)>= 1.57 && rpy(2) <3.14)
-            { // x != 0, y=0, z!=0 CORRECT
-                rpy(1) =0;
-                rpy(2) =0;
-                quaternions << get_quaternion_links(rpy), get_quaternion_hinten(rpy), get_quaternion_unten(rpy),get_quaternion_vorne(rpy), get_quaternion_oben(rpy), get_quaternion_rechts(rpy);
-
-            }
-            else if(rpy(2) <= -1.57 && rpy(2) > -3.14)
-            { //   CORRECT
-                rpy(1) =0;
-                rpy(2) =0;
-                quaternions << get_quaternion_rechts(rpy), get_quaternion_vorne(rpy), get_quaternion_unten(rpy),get_quaternion_hinten(rpy), get_quaternion_oben(rpy), get_quaternion_links(rpy);
-            }
-        }else{ // CORRECT
-
-            rpy(1) = 0;
-            quaternions << get_quaternion_vorne(rpy), get_quaternion_links(rpy), get_quaternion_unten(rpy), get_quaternion_rechts(rpy), get_quaternion_oben(rpy), get_quaternion_hinten(rpy);
-        }
+    for(int i= 0; i < obj_rpys.size() ; i++){
+        q_ = rmv(obj_rpys[i],q_);
     }
-    else if(rpy(1) <= -1.57 && rpy(1) > -3.14)
-    {
-        // vorne, left, unten, rechts, oben, hinten
-        if(rpy(2) != 0.0)
-        {
-            if(rpy(2)>= 1.57 && rpy(2) <3.14)
-            { // x != 0, y=0, z!=0 CORRECT
-
-                rpy(1) =0;
-                rpy(2) =0;
-                quaternions << get_quaternion_rechts(rpy), get_quaternion_hinten(rpy), get_quaternion_oben(rpy), get_quaternion_vorne(rpy), get_quaternion_unten(rpy), get_quaternion_links(rpy);
-            }
-            else if(rpy(2) <= -1.57 && rpy(2) > -3.14)
-            {
-
-                rpy(1) =0;
-                rpy(2) =0;
-                quaternions << get_quaternion_links(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy), get_quaternion_hinten(rpy), get_quaternion_unten(rpy), get_quaternion_rechts(rpy);
-            }
-        }
-        else
-        {
-            rpy(1) = 0;
-            quaternions <<  get_quaternion_hinten(rpy),get_quaternion_links(rpy),get_quaternion_oben(rpy) , get_quaternion_rechts(rpy) ,get_quaternion_unten(rpy) ,get_quaternion_vorne(rpy);
-        }
+    for(int i= 0; i < new_rpys.size() ; i++){
+        q_ = rmv(new_rpys[i],q_);
     }
-    else{
-        // ?
-    }
-    return quaternions;
-
+    return q_;
 }
-
-MatrixXd quaternion_z(MatrixXd rpy)
-{ //CORRECT
-    MatrixXd quaternions(6,4);
-    quaternions<< get_quaternion_unten(rpy),get_quaternion_links(rpy),get_quaternion_hinten(rpy), get_quaternion_rechts(rpy), get_quaternion_vorne(rpy), get_quaternion_oben(rpy);
-    return quaternions;
-
-}
-
-MatrixXd match_deg_to_rpy(MatrixXd rpy, MatrixXd axis){ // todo +add wanted rotation not only 90 deg
-    MatrixXd degree(1,3);
-    if(rpy(0) == 0 && rpy(1) == 0 && rpy(2) == 0){
-        if(axis(0) == 1)
-            degree << 1.57, 0.0, 0.0;
-        if(axis(1) == 1)
-            degree << 0.0, 1.57, 0.0;
-        if(axis(2) == 1)
-            degree << 0.0, 0.0, 1.57;
-        if(axis(0) == -1)
-            degree << -1.57, 0.0, 0.0;
-        if(axis(1) == -1)
-            degree << 0.0, -1.57, 0.0;
-        if(axis(2) == -1)
-            degree << 0.0, 0.0, -1.57;
-    }
-    if(rpy(0) == 1.57 && rpy(1) == 0 && rpy(2) == 0){
-        if(axis(0) == 1)
-            degree << 1.57, 0.0, 0.0;
-        if(axis(1) == 1)
-            degree << 0.0, 0.0, 1.57;
-        if(axis(2) == 1)
-            degree << 0.0, -1.57,0.0;
-        if(axis(0) == -1)
-            degree << -1.57, 0.0, 0.0;
-        if(axis(1) == -1)
-            degree << 0.0, 0.0, -1.57;
-        if(axis(2) == -1)
-            degree << 0.0, 1.57, 0.0;
-    }
-    if(rpy(0) == -1.57 && rpy(1) == 0 && rpy(2) == 0){
-       if(axis(0) == 1)
-            degree << 1.57, 0.0, 0.0;
-        if(axis(1) == 1)
-            degree << 0.0, 0.0, -1.57;
-        if(axis(2) == 1)
-            degree << 0.0, 1.57,0.0;
-        if(axis(0) == -1)
-            degree << -1.57, 0.0, 0.0;
-        if(axis(1) == -1)
-            degree << 0.0, 0.0, 1.57;
-        if(axis(2) == -1)
-            degree << 0.0, -1.57, 0.0;
-    }
-    if(rpy(0) == 0 && rpy(1) == 1.57 && rpy(2) == 0){
-        if(axis(0) == 1)
-            degree << 0.0,0.0,-1.57;
-        if(axis(1) == 1)
-            degree << 0.0,1.57,0.0;
-        if(axis(2) == 1)
-            degree << 1.57,0.0,0.0;
-        if(axis(0) == -1)
-            degree << 0.0,0.0,1.57;
-        if(axis(1) == -1)
-            degree << 0.0,-1.57,0.0;
-        if(axis(2) == -1)
-            degree << -1.57,0.0,0.0;
-    }
-    if(rpy(0) == 0 && rpy(1) == -1.57 && rpy(2) == 0){
-        if(axis(0) == 1)
-            degree << 0.0,0.0,1.57;
-        if(axis(1) == 1)
-            degree << 0.0,1.57,0.0;
-        if(axis(2) == 1)
-            degree << -1.57,0.0,0.0;
-        if(axis(0) == -1)
-            degree << 0.0,0.0,-1.57;
-        if(axis(1) == -1)
-            degree << 0.0,-1.57,0.0;
-        if(axis(2) == -1)
-            degree << 1.57,0.0,0.0;
-    }
-    if(rpy(0) == 0 && rpy(1) == 0 && rpy(2) == 1.57){
-        if(axis(0) == 1)
-            degree << 0.0,1.57,0.0;
-        if(axis(1) == 1)
-            degree << -1.57,0.0,0.0;
-        if(axis(2) == 1)
-            degree << 0.0,0.0,1.57;
-        if(axis(0) == -1)
-            degree << 0.0,-1.57,0.0;
-        if(axis(1) == -1)
-            degree << 1.57,0.0,0.0;
-        if(axis(2) == -1)
-            degree << 0.0,0.0,-1.57;
-
-    }
-    if(rpy(0) == 0 && rpy(1) == 0 && rpy(2) == -1.57){
-        if(axis(0) == 1)
-            degree << 0.0,-1.57,0.0;
-        if(axis(1) == 1)
-            degree << 1.57,0.0,0.0;
-        if(axis(2) == 1)
-            degree << 0.0,0.0,1.57;
-        if(axis(0) == -1)
-            degree << 0.0,1.57,0.0;
-        if(axis(1) == -1)
-            degree << -1.57,0.0,0.0;
-        if(axis(2) == -1)
-            degree << 0.0,0.0,-1.57;
-    }
-    if(rpy(0) == 1.57 && rpy(1) == 1.57 && rpy(2) == 0){
-        if(axis(0) == 1)
-            degree << 0.0,0.0,-1.57;
-        if(axis(1) == 1)
-            degree << 1.57,0.0,0.0;
-        if(axis(2) == 1)
-            degree << 0.0,-1.57,0.0;
-        if(axis(0) == -1)
-            degree << 0.0,0.0,1.57;
-        if(axis(1) == -1)
-            degree << -1.57,0.0,0.0;
-        if(axis(2) == -1)
-            degree << 0.0,1.57,0.0;
-    }
-    if(rpy(0) == 1.57 && rpy(1) == -1.57 && rpy(2) == 0){
-        if(axis(0) == 1)
-            degree << 0.0,0.0,1.57;
-        if(axis(1) == 1)
-            degree << -1.57,0.0,0.0;
-        if(axis(2) == 1)
-            degree << 0.0,-1.57,0.0;
-        if(axis(0) == -1)
-            degree << 0.0,0.0,-1.57;
-        if(axis(1) == -1)
-            degree << 1.57,0.0,0.0;
-        if(axis(2) == -1)
-            degree << 0.0,1.57,0.0;
-    }
-    if(rpy(0) == -1.57 && rpy(1) == 1.57 && rpy(2) == 0){
-        if(axis(0) == 1)
-            degree << 0.0,0.0,-1.57;
-        if(axis(1) == 1)
-            degree << -1.57,0.0,0.0;
-        if(axis(2) == 1)
-            degree << 0.0,1.57,0.0;
-        if(axis(0) == -1)
-            degree << 0.0,0.0,1.57;
-        if(axis(1) == -1)
-            degree << 1.57,0.0,0.0;
-        if(axis(2) == -1)
-            degree << 0.0,1.57,0.0;
-    }
-    if(rpy(0) == -1.57 && rpy(1) == -1.57 && rpy(2) == 0){
-        if(axis(0) == 1)
-            degree << 0.0,0.0,1.57;
-        if(axis(1) == 1)
-            degree << 1.57,0.0,0.0;
-        if(axis(2) == 1)
-            degree << 0.0,1.57,0.0;
-        if(axis(0) == -1)
-            degree << 0.0,0.0,-1.57;
-        if(axis(1) == -1)
-            degree << -1.57,0.0,0.0;
-        if(axis(2) == -1)
-            degree << 0.0,-1.57,0.0;
-    }
-    if(rpy(0) == 1.57 && rpy(1) == 0 && rpy(2) == 1.57){
-        if(axis(0) == 1)
-            degree << 0.0,1.57,0.0;
-        if(axis(1) == 1)
-            degree << 0.0,0.0,1.57;
-        if(axis(2) == 1)
-            degree << 1.57,0.0,0.0;
-        if(axis(0) == -1)
-            degree << 0.0,-1.57,0.0;
-        if(axis(1) == -1)
-            degree << 0.0,0.0,-1.57;
-        if(axis(2) == -1)
-            degree << -1.57,0.0,0.0;
-    }
-    if(rpy(0) == 1.57 && rpy(1) == 0 && rpy(2) == -1.57){
-        if(axis(0) == 1)
-            degree << 0.0,-1.57,0.0;
-        if(axis(1) == 1)
-            degree << 0.0,0.0,1.57;
-        if(axis(2) == 1)
-            degree << -1.57,0.0,0.0;
-        if(axis(0) == -1)
-            degree << 0.0,1.57,0.0;
-        if(axis(1) == -1)
-            degree << 0.0,0.0,-1.57;
-        if(axis(2) == -1)
-            degree << 1.57,0.0,0.0;
-    }
-    if(rpy(0) == -1.57 && rpy(1) == 0 && rpy(2) == 1.57){
-        if(axis(0) == 1)
-            degree << 0.0,1.57,0.0;
-        if(axis(1) == 1)
-            degree << 0.0,0.0,-1.57;
-        if(axis(2) == 1)
-            degree << -1.57,0.0,0.0;
-        if(axis(0) == -1)
-            degree << 0.0,-1.57,0.0;
-        if(axis(1) == -1)
-            degree << 0.0,0.0,1.57;
-        if(axis(2) == -1)
-            degree << 1.57,0.0,0.0;
-    }
-    if(rpy(0) == -1.57 && rpy(1) == 0 && rpy(2) == -1.57){
-        if(axis(0) == 1)
-            degree << 0.0,-1.57,0.0;
-        if(axis(1) == 1)
-            degree << 0.0,0.0,-1.57;
-        if(axis(2) == 1)
-            degree << 1.57,0.0,0.0;
-        if(axis(0) == -1)
-            degree << 0.0,1.57,0.0;
-        if(axis(1) == -1)
-            degree << 0.0,0.0,1.57;
-        if(axis(2) == -1)
-            degree << -1.57,0.0,0.0;
-    }
-    if(rpy(0) == 0 && rpy(1) == 1.57 && rpy(2) == 1.57){
-        if(axis(0) == 1)
-            degree << 0.0,0.0,-1.57;
-        if(axis(1) == 1)
-            degree << -1.57,0.0,0.0;
-        if(axis(2) == 1)
-            degree << 0.0,1.57,0.0;
-        if(axis(0) == -1)
-            degree << 0.0,0.0,1.57;
-        if(axis(1) == -1)
-            degree << 1.57,0.0,0.0;
-        if(axis(2) == -1)
-            degree << 0.0,1.57,0.0;
-    }
-    if(rpy(0) == 0 && rpy(1) == 1.57 && rpy(2) == -1.57){
-        if(axis(0) == 1)
-            degree << 0.0,0.0,-1.57;
-        if(axis(1) == 1)
-            degree << 1.57,0.0,0.0;
-        if(axis(2) == 1)
-            degree << 0.0,-1.57,0.0;
-        if(axis(0) == -1)
-            degree << 0.0,0.0,1.57;
-        if(axis(1) == -1)
-            degree << -1.57,0.0,0.0;
-        if(axis(2) == -1)
-            degree << 0.0,1.57,0.0;
-    }
-    if(rpy(0) == 0 && rpy(1) == -1.57 && rpy(2) == 1.57){
-        if(axis(0) == 1)
-            degree << 0.0,0.0,1.57;
-        if(axis(1) == 1)
-            degree << -1.57,0.0,0.0;
-        if(axis(2) == 1)
-            degree << 0.0,-1.57,0.0;
-        if(axis(0) == -1)
-            degree << 0.0,0.0,-1.57;
-        if(axis(1) == -1)
-            degree << 1.57,0.0,0.0;
-        if(axis(2) == -1)
-            degree << 0.0,1.57,0.0;
-    }
-    if(rpy(0) == 0 && rpy(1) == -1.57 && rpy(2) == -1.57){
-        if(axis(0) == 1)
-            degree << 0.0,0.0,1.57;
-        if(axis(1) == 1)
-            degree << 1.57,0.0,0.0;
-        if(axis(2) == 1)
-            degree << 0.0,1.57,0.0;
-        if(axis(0) == -1)
-            degree << 0.0,0.0,-1.57;
-        if(axis(1) == -1)
-            degree << -1.57,0.0,0.0;
-        if(axis(2) == -1)
-            degree << 0.0,-1.57,0.0;
-    }
-    if(rpy(0) == 0 && rpy(1) == 0 && rpy(2) == 1.57){
-        if(axis(0) == 1)
-                degree << 0.0,1.57,0.0;
-        if(axis(1) == 1)
-            degree << -1.57,0.0,0.0;
-        if(axis(2) == 1)
-            degree << 0.0,0.0,1.57;
-        if(axis(0) == -1)
-            degree << 0.0,-1.57,0.0;
-        if(axis(1) == -1)
-            degree << 1.57,0.0,0.0;
-        if(axis(2) == -1)
-            degree << 0.0,0.0,-1.57;
-    }
-    if(rpy(0) == 0 && rpy(1) == 0 && rpy(2) == -1.57){
-        if(axis(0) == 1)
-            degree << 0.0,-1.57,0.0;
-        if(axis(1) == 1)
-            degree << 1.57,0.0,0.0;
-        if(axis(2) == 1)
-            degree << 0.0,0.0,1.57;
-        if(axis(0) == -1)
-            degree << 0.0,1.57,0.0;
-        if(axis(1) == -1)
-            degree << 1.57,0.0,0.0;
-        if(axis(2) == -1)
-            degree << 0.0,0.0,-1.57;
-    }
-    return degree;
-
-}
-
 
