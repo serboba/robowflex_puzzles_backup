@@ -18,9 +18,18 @@
 #include <robowflex_dart/quaternion_factory.h>
 #include <robowflex_dart/Object.h>
 #include <tf2/LinearMath/Quaternion.h>
+#include <tf2/LinearMath/Matrix3x3.h>
 
 using namespace Eigen;
 
+
+void tf_quaternion_to_rpy(tf2::Quaternion q );
+
+void eigen_quaternion_to_rpy(Eigen::Quaterniond q );
+
+void eigen_matrix_quaternion_to_rpy(Eigen::MatrixXd q );
+
+MatrixXd eigen_quaternion_to_matrix(Eigen::Quaterniond quaternion);
 
 tf2::Quaternion eigen_to_tfquaternion(Eigen::MatrixXd quaternion);
 

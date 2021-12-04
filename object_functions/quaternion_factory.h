@@ -29,7 +29,8 @@ MatrixXd rmv(MatrixXd rpy, MatrixXd quaternion);
 
 MatrixXd actual_quaternion(MatrixXd obj_rpy);
 MatrixXd actual_quaternion(MatrixXd obj_rpy, int surf_no);
-MatrixXd match_deg_to_rpy_new(MatrixXd rpy, MatrixXd obj_rpy, int surface_no);
+
+MatrixXd match_deg_to_rpy_new(MatrixXd rotation_rpy, Eigen::Quaterniond grasp_q);
 #endif //ROBOWFLEX_DART_QUATERNION_FACTORY_H
 
 

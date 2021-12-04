@@ -14,6 +14,12 @@ tf2::Quaternion eigen_to_tfquaternion(Eigen::MatrixXd quaternion){
     return q_;
 }
 
+MatrixXd eigen_quaternion_to_matrix(Eigen::Quaterniond quaternion){
+    MatrixXd q_(1,4);
+    q_ << quaternion.w(),quaternion.x(), quaternion.y(),quaternion.z();
+    return q_;
+}
+
 tf2::Quaternion eigen_to_tfquaternion(Eigen::Quaterniond quaternion){
     tf2::Quaternion q_;
     q_.setW(quaternion.w());
@@ -30,6 +36,30 @@ Eigen::Quaterniond matrix_to_quaternion(Eigen::MatrixXd matrix){
     q.y() = matrix(2);
     q.z() = matrix(3);
     return q;
+}
+
+void tf_quaternion_to_rpy(tf2::Quaternion q ){
+    tf2Scalar roll, pitch, yaw;
+    tf2::Matrix3x3 mat(q);
+    mat.getEulerYPR(yaw,pitch,roll); // achtung returned Y X Z, bei mir R=x P=y Y=z XYZ deswegen PRY
+    std::cout << "ROLL : " << roll << " - PITCH : " << pitch << " - YAW: " << yaw << std::endl;
+}
+
+void eigen_quaternion_to_rpy(Eigen::Quaterniond q ){
+    tf2Scalar roll, pitch, yaw;
+    tf2::Quaternion q_ = eigen_to_tfquaternion(q);
+    tf2::Matrix3x3 mat(q_);
+    mat.getEulerYPR(yaw,pitch,roll); // achtung returned Y X Z, bei mir R=x P=y Y=z XYZ deswegen PRY
+    std::cout << "ROLL : " << roll << " - PITCH : " << pitch << " - YAW: " << yaw << std::endl;
+}
+
+
+void eigen_matrix_quaternion_to_rpy(Eigen::MatrixXd q ){
+    tf2Scalar roll, pitch, yaw;
+    tf2::Quaternion q_ = eigen_to_tfquaternion(q);
+    tf2::Matrix3x3 mat(q_);
+    mat.getEulerYPR(yaw,pitch,roll); // achtung returned Y X Z, bei mir R=x P=y Y=z XYZ deswegen PRY
+    std::cout << "ROLL : " << roll << " - PITCH : " << pitch << " - YAW: " << yaw << std::endl;
 }
 
 Eigen::Quaterniond tf_to_eigen_quaternion(tf2::Quaternion quaternion){

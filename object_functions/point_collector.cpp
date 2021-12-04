@@ -52,7 +52,29 @@ MatrixXd get_rotated_vertex(Vector3d obj_rpy, Vector3d point, Vector3d joint_pos
     MatrixXd q1 = rpy_to_quaternion(obj_rpy[0],obj_rpy[1],obj_rpy[2]);
     return (joint_pos + matrix_to_quaternion(q1)*(point-joint_pos));
 }
+/*
+MatrixXd get_rotated_vertex(MatrixXd q1, Vector3d point, Vector3d joint_pos ){ // todo correct quaternion value with divide rpy
 
+    return (joint_pos + matrix_to_quaternion(q1)*(point-joint_pos));
+    //return (joint_pos+ get_quaternion_from_euler(degrees[2],degrees[1],degrees[0])*(point-joint_pos));
+}
+
+MatrixXd get_rotated_vertex(MatrixXd quat, Vector3d new_rpy, Vector3d point, Vector3d joint_pos , int surf_no ){ // todo correct quaternion value with divide rpy
+
+    //MatrixXd q1 = rpy_to_quaternion(obj_rpy[0],obj_rpy[1],obj_rpy[2]);
+    MatrixXd deg = vec_to_matrix(new_rpy);
+    MatrixXd q1 = new_rotation_quaternion(deg, matrix_to_quaternion(quat),0);
+
+    switch (surf_no) {
+
+
+    }
+
+
+    return (joint_pos + matrix_to_quaternion(q1)*(point-joint_pos));
+    //return (joint_pos+ get_quaternion_from_euler(degrees[2],degrees[1],degrees[0])*(point-joint_pos));
+}
+*/
 
 MatrixXd get_rotated_object(Vector3d obj_rpy, Vector3d joint_pos, Vector3d object_size){ //rotate for all vertices
     MatrixXd vertices = get_object_vertices(joint_pos,object_size);
@@ -240,9 +262,9 @@ void read_urdf_file(std::string filename){
 }
 
 
-void create_objects_from_urdf(){
-    read_srdf_file("revolute_srdf.txt");
-    read_urdf_file("revolute.txt");
+void create_objects_from_urdf(const std::string &urdf_name, const std::string &srdf_name){
+    read_urdf_file(urdf_name);
+    read_srdf_file(srdf_name);
     //std::vector<Object> objects_;
     for(int i = 0; i < joint_positions.size(); i++){
         Vector3d joint_xyz(joint_positions[i].data());
@@ -296,9 +318,17 @@ MatrixXd get_point_position(MatrixXd surface_equation,std::vector<double> ratio_
     return (position_vector+direction_vector1+direction_vector2);
 }
 
-MatrixXd get_random_point_from_surface(MatrixXd surface_equation_matrix, MatrixXd rpy_matrix, MatrixXd normals){ // eine ebenengleichung
+MatrixXd get_random_point_from_surface(MatrixXd surface_equation_matrix, MatrixXd rpy_matrix, MatrixXd normals, int surface_no){ // eine ebenengleichung
     srand ( time(NULL) );
-    int surface_no =rand() %6; // SURFACE NUMBER-> NEED IT FOR QUATERNIONS !!! DONT LOSE IT
+   // int surface_no =rand() %2; // SURFACE NUMBER-> NEED IT FOR QUATERNIONS !!! DONT LOSE IT
+    std::vector<int> surfs;
+    //surfs.push_back(1); // links
+    surfs.push_back(4); // vorne
+    //surfs.push_back(3); // rechts
+    surfs.push_back(5); // oben
+   // surface_no = surfs[surface_no];
+    //int surface_no =5; // SURFACE NUMBER-> NEED IT FOR QUATERNIONS !!! DONT LOSE IT
+    // (TODO) CHOOSED TOP SURFACE TO FASTER SOLUTION !
     int quaternion_no = 0; // todo +2 roll variations
     int surf_q_no = (surface_no*3)+quaternion_no; // surf no w quats
     std::cout << " SURFACE NO: " << surface_no << std::endl;
@@ -313,7 +343,7 @@ MatrixXd get_random_point_from_surface(MatrixXd surface_equation_matrix, MatrixX
 
 }
 
-Eigen::MatrixXd get_pose_object(Object &obj){
+Eigen::MatrixXd get_pose_object(Object &obj, int surface_no){
 
     obj.actual_position = get_rotated_vertex(obj.actual_rotation, (obj.link_xyz + obj.joint_xyz), obj.joint_xyz); // ADJUST JOINT POS W RESPECT TO LINK XYZ
     std::cout <<  "Actual position : " << obj.actual_position << std::endl;
@@ -322,7 +352,7 @@ Eigen::MatrixXd get_pose_object(Object &obj){
     MatrixXd surface_equation = get_surface_equation(get_rotated_object(obj.actual_rotation, obj.actual_position,obj.link_size));
     MatrixXd normals = get_normal_of_plane(surface_equation);
     MatrixXd rpy_matrix= vec_to_matrix(obj.link_rpy+obj.joint_rpy);
-    MatrixXd random_pose = get_random_point_from_surface(surface_equation,rpy_matrix,normals);
+    MatrixXd random_pose = get_random_point_from_surface(surface_equation,rpy_matrix,normals, surface_no);
 
     return random_pose;
 }

@@ -4,7 +4,6 @@
 
 #include <robowflex_dart/quaternion_factory.h>
 
-//TODO instead of rpy(x) = 0, use -= or += 1.57
 
 MatrixXd rpy_to_quaternion(double roll, double pitch, double yaw){
     tf2::Quaternion q_new;
@@ -56,6 +55,8 @@ MatrixXd rmv(MatrixXd rpy, MatrixXd quaternion){ // r = rotate m = missing v = v
         tf2::Quaternion q_new;
         q_new = q_rot*q_org;
          q_new.normalize();
+
+         tf_quaternion_to_rpy(q_new );  //print
         return tf_to_eigen_matrix_q(q_new);
 }
 
@@ -124,7 +125,6 @@ MatrixXd actual_quaternion(MatrixXd obj_rpy){
     quaternion << rpy_to_quaternion(rp_new(0),rp_new(1),rp_new(2));
     for(int i= 0; i < obj_rpys.size() ; i++){
             quaternion = rmv(obj_rpys[i],quaternion);
-            std::cout <<"YOOOOOOO QUAAATTT : " << quaternion;
     }
     return quaternion;
 }
@@ -157,7 +157,6 @@ MatrixXd actual_quaternion(MatrixXd rot_rpy, int surf_no){
 
     for(int i= 0; i < rot_rpys.size() ; i++){
         quaternion = rmv(rot_rpys[i],quaternion);
-        std::cout <<"YOOOOOOO QUAAATTT : " << quaternion;
     }
     return quaternion;
 }
@@ -185,48 +184,17 @@ MatrixXd quaternion_x_y_z(MatrixXd rpy){
     return quaternion_;
 }
 
-MatrixXd match_deg_to_rpy_new(MatrixXd rpy, MatrixXd obj_rpy, int surface_no){
+MatrixXd match_deg_to_rpy_new(MatrixXd rotation_rpy, Eigen::Quaterniond grasp_q){
+    std::cout << "rotation rpy : " << rotation_rpy << std::endl;
 
-    MatrixXd q_(1,4);
+    std::vector<MatrixXd> new_rpys = rpy_to_vector(rotation_rpy);
+    MatrixXd new_q = eigen_quaternion_to_matrix(grasp_q);
 
-    MatrixXd rp_new(1,3);
-    rp_new << 0.0, 0.0, 0.0;
-
-    std::vector<MatrixXd> new_rpys = rpy_to_vector(rpy);
-    std::vector<MatrixXd> obj_rpys = rpy_to_vector(obj_rpy);
-
-
-    switch(surface_no){
-        case 0:
-            q_= get_quaternion_unten(rp_new);
-            break;
-        case 1:
-
-            q_= get_quaternion_links(rp_new);
-            break;
-        case 2:
-
-            q_= get_quaternion_hinten(rp_new);
-            break;
-        case 3:
-
-            q_= get_quaternion_rechts(rp_new);
-            break;
-        case 4:
-
-            q_= get_quaternion_vorne(rp_new);
-            break;
-        case 5:
-            q_= get_quaternion_oben(rp_new);
-            break;
+    for(int i = 0; i<new_rpys.size(); i++){
+        new_q = rmv(new_rpys[i],new_q);
     }
+    return new_q;
 
-    for(int i= 0; i < obj_rpys.size() ; i++){
-        q_ = rmv(obj_rpys[i],q_);
-    }
-    for(int i= 0; i < new_rpys.size() ; i++){
-        q_ = rmv(new_rpys[i],q_);
-    }
-    return q_;
 }
+
 

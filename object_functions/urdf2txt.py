@@ -43,7 +43,7 @@ def parse_urdf_file(root):
     links = []
     for link in root.findall('link'):
         link_name = link.get('name')
-        if (link.find('visual') != None and link.find('visual/geometry/mesh') == None):  # if object different type ?
+        if (link.find('visual') != None and link.find('visual/geometry/mesh') == None and link.find('visual/geometry/box') != None ):  # if object different type ?
             link_size = link.find('visual/geometry/box').get('size')
             link_xyz = link.find('visual/origin').get('xyz')
             link_rpy = link.find('visual/origin').get('rpy')
