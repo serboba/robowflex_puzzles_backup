@@ -75,6 +75,7 @@ int main(int argc, char **argv)
     /* NEVER CHANGE THIS ROBOT LOADING STRUCTURE UNTIL HERE !!!! */
     darts::Window window(world);
 
+
     const auto &strech_normal = [&](Eigen::MatrixXd &normal_vec){ // add normal to the pos we calculated because wrist not positioned right
         for(int i = 0; i < 3 ;i++){
             if(normal_vec(0,i) == 0.0)
@@ -267,51 +268,7 @@ int main(int argc, char **argv)
         std::cout<< "NEW DEGREE : " << new_degre << std::endl;
         MatrixXd rotvex = get_rotated_vertex(degrees, pos_spec.getPosition(), obj.joint_xyz);
         position = matrix_to_vec(rotvex);
-
-
-        //std::cout << pos_spec.getPosition()[0] << "," << pos_spec.getPosition()[1] << ","<< pos_spec.getPosition()[2] << std::endl;
-        //std::cout << position(0) << "," << position(1) << "," << position(2) << std::endl;
-
-        /*
-         std::cout << "OLD ROTATION: " <<  std::endl;
-        eigen_quaternion_to_rpy(pos_spec.getRotation());
-        std::cout << "NEW ROTATION: " << std::endl;
-        eigen_matrix_quaternion_to_rpy(rotation);
-        */
-        // alternative !
-        /*
-        rotation = match_deg_to_rpy_new(vec_to_matrix(degrees), pos_spec.getRotation());
-
-
-        MatrixXd rotvex = get_rotated_vertex(degrees, pos_spec.getPosition(), obj.joint_xyz);
-        position = matrix_to_vec(rotvex);
-
-
-        std::cout << pos_spec.getPosition()[0] << "," << pos_spec.getPosition()[1] << ","<< pos_spec.getPosition()[2] << std::endl;
-        std::cout << position(0) << "," << position(1) << "," << position(2) << std::endl;
-
-        std::cout << "OLD ROTATION: " <<  std::endl;
-        eigen_quaternion_to_rpy(pos_spec.getRotation());
-        std::cout << "NEW ROTATION: " << std::endl;
-        eigen_matrix_quaternion_to_rpy(rotation);
-    */
-
-        //std::cout << "OLD ROTATION: " << pos_spec.getRotation().w() << "," << pos_spec.getRotation().x() <<","<<pos_spec.getRotation().y() <<","<< pos_spec.getRotation().z() << std::endl;
-        //std::cout << "NEW ROTATION: " << rotation(0) <<"," << rotation(1) <<"," <<rotation(2) <<"," <<rotation(3)  << std::endl;
-        /*
-        tf2::Quaternion old_rot = eigen_to_tfquaternion(pos_spec.getRotation());
-        tf2::Quaternion result = tf2::Quaternion(tf2::Vector3(0,0,1),0.80) * old_rot;
-        rotation = tf_to_eigen_matrix_q(result);
-        std::cout << "OLD ROTATION: " << pos_spec.getRotation().w() << "," << pos_spec.getRotation().x() <<","<<pos_spec.getRotation().y() <<","<< pos_spec.getRotation().z() << std::endl; std::cout << "NEW ROTATION: " << rotation(0) <<"," << rotation(1) <<"," <<rotation(2) <<"," <<rotation(3)  << std::endl;
-
-
-        std::cout<< degrees<< std::endl;
-        std::cout << "OLD POSITION OF POINT: "<< pos_spec.getPosition() << std::endl;
-        MatrixXd rotvex = get_rotated_vertex(degrees, pos_spec.getPosition(), obj.joint_xyz);
-        position = matrix_to_vec(rotvex);
-        std::cout << "NEW POSITION OF POINT: "<< position << std::endl;
-*/
-
+        
     };
 
     const auto &plan_to_grasp = [&](Object &obj, int &surf_no, bool normals_help) {
@@ -487,12 +444,68 @@ int main(int argc, char **argv)
         }
     };
 
+    const auto &plan_to_move_robot = [&](Vector3d new_position) {
+        darts::PlanBuilder builder(world);
+        builder.addGroup(fetch_name, GROUP_X);
+        builder.setStartConfigurationFromWorld();
+        auto start_config = builder.getStartConfiguration();
+        builder.initialize();
+
+        std::vector<double> goal_config = {0.05, 1.32, 1.4, -0.2, 1.72, 0, 1.66, 0, new_position[0],new_position[1],0.0 }; // y axis first, x axis second
+        auto goal = builder.getGoalConfiguration(goal_config);
+        builder.setGoal(goal);
+        auto rrt = std::make_shared<ompl::geometric::RRTConnect>(builder.info,true);
+        builder.ss->setPlanner(rrt);
+        builder.setup();
+        ompl::base::PlannerStatus solved = builder.ss->solve(20.0);
+
+
+        if (solved == ompl::base::PlannerStatus::EXACT_SOLUTION )
+        {
+            RBX_INFO("Found solution!");
+            while(true)
+                window.animatePath(builder, builder.getSolutionPath());
+
+        }
+        else{
+            RBX_WARN("No solution found");
+        }
+    };
+
+    const auto &plan_to_fold_arm = [&](bool &flag) { // new position =  world position
+        darts::PlanBuilder builder(world);
+        builder.addGroup(fetch_name, GROUP_X);
+        builder.setStartConfigurationFromWorld();
+        auto start_config = builder.getStartConfiguration();
+        builder.initialize();
+
+        auto goal = builder.getGoalConfiguration({0.05, 1.32, 1.4, -0.2, 1.72, 0, 1.66, 0, start_config[8],start_config[9],start_config[10] });
+        builder.setGoal(goal);
+        auto rrt = std::make_shared<ompl::geometric::RRTConnect>(builder.info,true);
+        builder.ss->setPlanner(rrt);
+        builder.setup();
+        ompl::base::PlannerStatus solved = builder.ss->solve(20.0);
+
+
+        if (solved == ompl::base::PlannerStatus::EXACT_SOLUTION )
+        {
+            RBX_INFO("Found solution!");
+            window.animatePath(builder, builder.getSolutionPath());
+            flag = true;
+        }
+        else{
+            RBX_WARN("No solution found");
+        }
+    };
+
 
 
     window.run([&] {
         //create_txt_from_urdf();
         std::vector<Object> obj_s = get_objects();
-        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+        std::this_thread::sleep_for(std::chrono::milliseconds(6000));
+
+        bool flag1 = false;
 
         bool flag = false;
         int chosen_surface_no = 5;
@@ -504,10 +517,10 @@ int main(int argc, char **argv)
         degrees.push_back(d_);
         d_ << 0.0,0.0,1.56;
         degrees.push_back(d_);
-
+// std::vector<double> st_vec = {0.05, 1.32, 1.4, -0.2, 1.72, 0, 1.66, 0, start_config[8],start_config[9],start_config[10]};
 
         while(!flag){
-            plan_to_grasp(obj_s[1],chosen_surface_no, false); // cube1
+            plan_to_grasp(obj_s[1],chosen_surface_no, false); // door1
             plan_to_move_xyz_axis(obj_s[1],flag,0,-1.10);
             std::this_thread::sleep_for(std::chrono::milliseconds(2000));
         }
@@ -517,7 +530,7 @@ int main(int argc, char **argv)
 
         chosen_surface_no = 5;
         while(!flag){
-            plan_to_grasp(obj_s[0],chosen_surface_no, false); // cube2
+            plan_to_grasp(obj_s[0],chosen_surface_no, false); // door1
             plan_to_move_xyz_axis(obj_s[0],flag,1,-1.0);
             std::this_thread::sleep_for(std::chrono::milliseconds(2000));
           }
@@ -527,7 +540,7 @@ int main(int argc, char **argv)
 
         chosen_surface_no = 4;
         while(!flag){
-            plan_to_grasp(obj_s[2],chosen_surface_no, true); // door lock
+            plan_to_grasp(obj_s[2],chosen_surface_no, true); // door1
             std::this_thread::sleep_for(std::chrono::milliseconds(2000));
             plan_to_rotate_rpy(obj_s[2],flag,degrees[0], chosen_surface_no);
         }
@@ -536,7 +549,7 @@ int main(int argc, char **argv)
         flag=false;
         chosen_surface_no = 4;
         while(!flag){
-            plan_to_grasp(obj_s[3],chosen_surface_no, true); // front door
+            plan_to_grasp(obj_s[3],chosen_surface_no, true); // door1
             std::this_thread::sleep_for(std::chrono::milliseconds(2000));
             plan_to_rotate_rpy(obj_s[3],flag,degrees[1], chosen_surface_no);
         }
@@ -544,10 +557,16 @@ int main(int argc, char **argv)
         std::this_thread::sleep_for(std::chrono::milliseconds(2000));
         flag=false;
 
+        plan_to_fold_arm(flag1);
 
+        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+        
+        Vector3d np;
+        np << 2.0, 0.0,0.0;
+        plan_to_move_robot(np);
 
     });
-// todo integrate joint type from input f.e. if obj.j_type = "revolute" --> match_deg_to_py
 
     return 0;
 }
+
