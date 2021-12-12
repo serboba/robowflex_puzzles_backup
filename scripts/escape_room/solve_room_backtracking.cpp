@@ -1,4 +1,8 @@
 //
+// Created by serboba on 11.12.21.
+//
+
+//
 // Created by serboba on 06.12.21.
 //
 
@@ -49,7 +53,7 @@ void reset_joints(std::shared_ptr<darts::World> &world){
     auto groups = world->getRobot("maze")->getGroups();
 
     for(auto &a : groups){
-       // std::cout << "resetting joint group : " << a.first;
+        // std::cout << "resetting joint group : " << a.first;
         for(auto &i : a.second)
             world->getRobot("maze")->setJoint(i,0.0);
     }
@@ -132,9 +136,9 @@ bool move_cube (std::map<std::string,double> assignment, std::shared_ptr<darts::
 
 bool find_in_vector(std::vector<std::string> vec, std::string str){
     BOOST_FOREACH(std::string s, vec){
-        if(s == str)
-            return true;
-    }
+                    if(s == str)
+                        return true;
+                }
     return false;
 }
 
@@ -194,19 +198,19 @@ bool backtracking(std::map<std::string,double> &assigned,std::shared_ptr<darts::
     if(var.size() == 0)
         return false;
     BOOST_FOREACH(double value, var.begin()->second){ // -1.57, 1.57
-        std::map<std::string,double> temp_assigned = assigned;
-        temp_assigned.insert(std::make_pair(var.begin()->first,value));
-        if(consistent(temp_assigned,world,window)){
-            assigned = temp_assigned;
-            auto result = backtracking(assigned,world,window);
-            if(result!=false){
-                std::cout << "Found result returning: " << std::endl;
-                print_assigned(assigned);
-                return result;
-            }
-            pop_element(assigned);
-        }
-    }
+                    std::map<std::string,double> temp_assigned = assigned;
+                    temp_assigned.insert(std::make_pair(var.begin()->first,value));
+                    if(consistent(temp_assigned,world,window)){
+                        assigned = temp_assigned;
+                        auto result = backtracking(assigned,world,window);
+                        if(result!=false){
+                            std::cout << "Found result returning: " << std::endl;
+                            print_assigned(assigned);
+                            return result;
+                        }
+                        pop_element(assigned);
+                    }
+                }
     return false;
 
 }
@@ -216,19 +220,51 @@ int main(int argc, char **argv)
     // Startup ROS
     ROS ros(argc, argv);
 
+    auto fetch_dart = darts::loadMoveItRobot("fetch",                                         //
+                                             "/home/serboba/Desktop/blenderFLEX/fetch3.urdf",  //
+                                             "/home/serboba/Desktop/blenderFLEX/fetch3.srdf");
 
     auto maze_dart = darts::loadMoveItRobot("maze",
-                                             "/home/serboba/rb_ws/devel/lib/robowflex_dart/maze.urdf",
-                                             "/home/serboba/rb_ws/devel/lib/robowflex_dart/maze.srdf");
+                                            "/home/serboba/rb_ws/devel/lib/robowflex_dart/room.urdf",
+                                            "/home/serboba/rb_ws/devel/lib/robowflex_dart/room.srdf");
 
 
     auto maze_name = maze_dart->getName();
     auto world = std::make_shared<darts::World>();
+    world->addRobot(fetch_dart);
     world->addRobot(maze_dart);
 
     darts::Window window(world);
 
 
+    const auto &plan_to_fold_arm = [&]() { // new position =  world position
+        darts::PlanBuilder builder(world);
+        builder.addGroup(fetch_dart->getName(), "arm_with_x_move");
+        builder.setStartConfigurationFromWorld();
+        auto start_config = builder.getStartConfiguration();
+        if(start_config[0] == 0.0) // if its the starting(beginning) motion the arm may be collide therefore adjust the torso as you want
+            start_config[0] += 0.10;
+
+       builder.setStartConfiguration(start_config);
+        builder.initialize();
+
+        auto goal = builder.getGoalConfiguration({0.05, 1.32, 1.4, -0.2, 1.72, 0, 1.66, 0, start_config[8],start_config[9],start_config[10] });
+        builder.setGoal(goal);
+        auto rrt = std::make_shared<ompl::geometric::RRTConnect>(builder.info,true);
+        builder.ss->setPlanner(rrt);
+        builder.setup();
+        ompl::base::PlannerStatus solved = builder.ss->solve(20.0);
+
+
+        if (solved == ompl::base::PlannerStatus::EXACT_SOLUTION )
+        {
+            RBX_INFO("Found solution!");
+            window.animatePath(builder, builder.getSolutionPath());
+        }
+        else{
+            RBX_WARN("No solution found");
+        }
+    };
 
 
     const auto &plan_solution_all = [&](std::map<std::string,double> assignment) {
@@ -240,10 +276,10 @@ int main(int argc, char **argv)
             goal_state_vector.push_back(a.second);
         }
   */
-        builder.addGroup(maze_name, "cube_gr");
-        builder.addGroup(maze_name, "doorgr1");
-        builder.addGroup(maze_name, "doorgr2");
-        builder.addGroup(maze_name, "doorgr3");
+        builder.addGroup(maze_name, "cube_gr1");
+        builder.addGroup(maze_name, "cube_gr2");
+        builder.addGroup(maze_name, "front_door_j");
+        builder.addGroup(maze_name, "door_lock_j");
         RBX_INFO("Trying following assignment: ");
         print_assigned(assignment);
 
@@ -255,13 +291,19 @@ int main(int argc, char **argv)
         builder.setStartConfiguration(start_config);
         auto idk = builder.getStartConfiguration();
 
+        darts::TSR::Specification sta;
+        sta.setFrame(maze_name, "front_door", "base_link");
+        sta.setPoseFromWorld(world);
+        sta.print(std::cout);
+
         builder.initialize();
 
         // std::this_thread::sleep_for(std::chrono::milliseconds(10000));
 
         darts::TSR::Specification goal_spec;
-        goal_spec.setFrame(maze_name, "cube1", "base_link");
-        goal_spec.setPose(0.5, -0.25, 0.75, 1, 0 ,0 ,0);
+        goal_spec.setFrame(maze_name, "front_door", "base_link");
+        goal_spec.setPosition(1.30, -0.4, 0.55);
+        goal_spec.setRotation(0,0,1.56);
         auto goal_tsr = std::make_shared<darts::TSR>(world, goal_spec);
         auto goal = builder.getGoalTSR(goal_tsr);
 
@@ -277,12 +319,12 @@ int main(int argc, char **argv)
         builder.setup();
 
         goal->startSampling();
-        ompl::base::PlannerStatus solved = builder.ss->solve(600.0);
+        ompl::base::PlannerStatus solved = builder.ss->solve(9000.0);
         goal->stopSampling();
         if (solved)
         {
             RBX_INFO("Found solution!");
-            window.animatePath(builder, builder.getSolutionPath(),2,15);
+            window.animatePath(builder, builder.getSolutionPath(),50,15);
 
             builder.getSolutionPath().printAsMatrix(std::cout);
 
@@ -293,13 +335,12 @@ int main(int argc, char **argv)
 
 
     window.run([&] {
-
+plan_to_fold_arm();
         std::map<std::string,double> assigned;
-        std:: cout << backtracking(assigned,world,window) << std::endl;
+        //std:: cout << backtracking(assigned,world,window) << std::endl;
+        plan_solution_all(assigned);
         std::this_thread::sleep_for(std::chrono::milliseconds(200000));
         move_cube(assigned,world,window);
-//        plan_solution_all(assigned);
-
     });
 
     return 0;
