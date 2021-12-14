@@ -36,12 +36,16 @@
 #include <robowflex_dart/space.h>
 #include <robowflex_dart/tsr.h>
 #include <robowflex_dart/world.h>
+#include <robowflex_dart/solution_analyzer.h>
 
 using namespace robowflex;
 
 static const std::string GROUP = "arm_with_torso";
 
-std::map<std::string,std::vector<double>> d_values = {{"doorgr1",{1.56,-1.56}},{"doorgr2",{1.56,-1.56}} ,{"doorgr3",{-1.56,1.56}}};
+std::vector<std::pair<std::string,std::vector<double>>> d_values;
+std::vector<std::vector<std::pair<std::string,std::vector<double>>>> d_maps;
+
+int d_count = 0;
 // todo -> find new values -> sampling?
 // todo after you found the solution, plan every state separately and the cube movement at the end
 
@@ -55,7 +59,20 @@ void reset_joints(std::shared_ptr<darts::World> &world){
     }
 }
 
-void print_assigned(std::map<std::string,double> assigned){
+std::vector<std::string> get_joint_names(std::shared_ptr<darts::World> &world){
+    std::vector<std::string> names;
+    auto groups = world->getRobot("maze")->getGroups();
+    for(auto &a : groups){
+        if(a.first == "cube_gr1" || a.first == "cube_gr2")
+            continue;
+        names.push_back(a.first);
+    }
+    return names;
+
+}
+
+
+void print_assigned(std::vector<std::pair<std::string,double>> assigned){
     for(auto &a : assigned){
         std::cout << "joint name : " << a.first;
         std::cout << " - joint value : " << a.second << std::endl;
@@ -65,8 +82,12 @@ void print_assigned(std::map<std::string,double> assigned){
 bool plan_one(std::shared_ptr<darts::World> world, std::string gr_name, std::vector<double> goal_joint_value,
               darts::Window &window){
     darts::PlanBuilder builder(world);
-
-    builder.addGroup("maze", gr_name);
+    if(gr_name == "cube_gr"){
+        builder.addGroup("maze", "cube_gr1");
+        builder.addGroup("maze", "cube_gr2");
+    }
+    else
+        builder.addGroup("maze", gr_name);
 
     std::vector<double> start_config(goal_joint_value.size(), 0.0);
     builder.setStartConfiguration(start_config);
@@ -104,8 +125,7 @@ bool plan_one(std::shared_ptr<darts::World> world, std::string gr_name, std::vec
 }
 
 
-
-bool move_cube (std::map<std::string,double> assignment, std::shared_ptr<darts::World> world,
+bool move_cube (std::vector<std::pair<std::string,double>> assignment, std::shared_ptr<darts::World> world,
                 darts::Window &window){
     std::vector<double> goal_state_vector;
 
@@ -138,7 +158,15 @@ bool find_in_vector(std::vector<std::string> vec, std::string str){
     return false;
 }
 
-bool consistent (std::map<std::string,double> assignment,std::shared_ptr<darts::World> world, darts::Window &window){
+int find_index_in_vector(std::string str){
+    for(int i =0; i< d_values.size(); i++){
+        if(str == d_values[i].first)
+            return i;
+    }
+    return -1;
+}
+
+bool consistent (std::vector<std::pair<std::string,double>> assignment,std::shared_ptr<darts::World> world, darts::Window &window){
     std::vector<double> goal_state_vector;
 
     RBX_INFO("Trying following assignment: ");
@@ -158,57 +186,121 @@ bool consistent (std::map<std::string,double> assignment,std::shared_ptr<darts::
 };
 
 
-std::map<std::string,std::vector<double>> select_unassigned_joint(std::map<std::string,double> assigned_){
-    std::pair<std::string,double> joints;
+std::pair<std::string,std::vector<double>> select_unassigned_joint(std::vector<std::pair<std::string,double>> assigned_){
     std::vector<std::string> assigned_joints;
-    BOOST_FOREACH(joints,assigned_){
-                    assigned_joints.push_back(joints.first);
-                }
+        for(auto& joints : assigned_){
+            assigned_joints.push_back(joints.first);
+            std::cout << "Pushing : " << joints.first << "-";
+        }
+        std::cout <<"\n" << std::endl;
 
-    std::map<std::string , std::vector<double>>::iterator it;
-    std::map<std::string,std::vector<double>> var;
+    std::pair<std::string,std::vector<double>> var;
     for(auto & d_var : d_values){
         if(!find_in_vector(assigned_joints,d_var.first)){
-            var.insert(std::make_pair(d_var.first,d_var.second));
+            var = std::make_pair(d_var.first,d_var.second);
             return var;
         }
     }
 }
 
-void pop_element(std::map<std::string,double> &assigned_){
+void pop_element(std::vector<std::pair<std::string,double>> &assigned_){
+   /*
     for(auto it = assigned_.begin(); it != assigned_.end(); it++){
         std::cout <<"pop: " <<  it->first << std::endl;
     }
     auto it = assigned_.end();
     it--;
-    assigned_.erase(it);
+*/
+    assigned_.erase(std::prev(assigned_.end()));
 }
 
-bool backtracking(std::map<std::string,double> &assigned,std::shared_ptr<darts::World> world, darts::Window &window ){
+
+bool backtracking(std::vector<std::pair<std::string,double>> &assigned,std::shared_ptr<darts::World> world, darts::Window &window ){
     if(move_cube(assigned,world,window)){
         print_assigned(assigned);
         return true;
     }
+    print_assigned(assigned);
+    std::pair<std::string,std::vector<double>> var = select_unassigned_joint(assigned);
+    if(var.first != ""){
+        std::cout <<  "ALL CHILD NODES OF LAST JOINT ASSINGED" << std::endl;
+        print_assigned(assigned);
+    }
+    if(var.first != "" ){
+        for(double value : var.second){ // -1.57, 1.57
+            //temp_assigned.insert(std::make_pair(var.begin()->first,value));
+            std::vector<std::pair<std::string,double>> temp_assigned = assigned;
+            temp_assigned.push_back(std::make_pair(var.first,value));
 
-    std::map<std::string,std::vector<double>> var = select_unassigned_joint(assigned);
-    if(var.size() == 0)
-        return false;
-    BOOST_FOREACH(double value, var.begin()->second){ // -1.57, 1.57
-        std::map<std::string,double> temp_assigned = assigned;
-        temp_assigned.insert(std::make_pair(var.begin()->first,value));
-        if(consistent(temp_assigned,world,window)){
-            assigned = temp_assigned;
-            auto result = backtracking(assigned,world,window);
-            if(result!=false){
-                std::cout << "Found result returning: " << std::endl;
-                print_assigned(assigned);
-                return result;
+            if(consistent(temp_assigned,world,window)){
+                assigned = temp_assigned;
+                auto result = backtracking(assigned,world,window);
+                if(result!=false){
+                    std::cout << "Found result returning: " << std::endl;
+                    print_assigned(assigned);
+                    return result;
+                }
+                pop_element(assigned);
             }
-            pop_element(assigned);
         }
     }
+
     return false;
 
+}
+
+std::vector<std::vector<std::pair<std::string,std::vector<double>>>> get_permutations(){
+
+    std::vector<std::vector<std::pair<std::string,std::vector<double>>>> d_vals; //domain permutations
+    std::vector<int> perm_num;
+    for (int i = 0; i < d_values.size() ; i++) {
+        perm_num.push_back(i);
+    }
+
+    std::vector<std::string> joint_names;
+    for(auto domain: d_values){
+        joint_names.push_back(domain.first);
+    }
+
+    do {
+        std::vector<std::pair<std::string,std::vector<double>>> temp_map;
+        for(int i = 0; i < joint_names.size() ; i++ ){
+
+            int index = find_index_in_vector(joint_names[i]);
+            temp_map.push_back(std::make_pair(joint_names[i],d_values[index].second));
+
+            std::cout << "ADDING JOINT : " << joint_names[i] << " - " << d_values[index].second[0] << "-"<< d_values[index].second[1] << "-" << d_values[index].second[2] <<std::endl;
+        }
+        std::cout << "CURRENT JOINT NAME COMBINATION" << joint_names[0] << "-" << joint_names[1] << "-" << joint_names[2] << std::endl;
+        d_vals.push_back(temp_map);
+    }while(std::next_permutation(joint_names.begin(),joint_names.end()));
+
+    return d_vals;
+}
+
+
+bool solve_backtracking(std::shared_ptr<darts::World> world, std::vector<std::pair<std::string,double>> &assigned, darts::Window &window){
+
+    std::vector<std::string> joint_names = get_joint_names(world);
+    std::cout << joint_names[0] << "-" <<joint_names[1] << "- " << joint_names[2] << std::endl;
+   // auto sasfjsd = d_maps;
+  //  if(backtracking(assigned,world,window)){
+  //      std::cout << "FOUND SOLUTION FIRST TRY" << std::endl;
+   //     return true;
+   // }else{
+        std::cout << "NO SOLUTION FOUND FIRST ATTEMPT, TRYING DIFFERENT PERMUTATIONS" << std::endl;
+        for(int i = 0 ; i <d_maps.size() ; i++){
+            d_values = d_maps[i];
+            std::cout << d_values.begin()->first << "-" << std::endl;
+
+            //d_values = get_domain_values(joint_names);
+            if (backtracking(assigned,world,window)){
+                std::cout << "FOUND SOLUTION ! " << std::endl;
+                return true;
+            }
+
+        }
+   // }
 }
 
 int main(int argc, char **argv)
@@ -229,78 +321,80 @@ int main(int argc, char **argv)
     darts::Window window(world);
 
 
-
-
-    const auto &plan_solution_all = [&](std::map<std::string,double> assignment) {
-        darts::PlanBuilder builder(world);
-        std::vector<double> goal_state_vector;
-/*
-        for(auto const &a : assignment){
-            builder.addGroup("maze",a.first);
-            goal_state_vector.push_back(a.second);
-        }
-  */
-        builder.addGroup(maze_name, "cube_gr");
-        builder.addGroup(maze_name, "doorgr1");
-        builder.addGroup(maze_name, "doorgr2");
-        builder.addGroup(maze_name, "doorgr3");
-        RBX_INFO("Trying following assignment: ");
-        print_assigned(assignment);
-
-        goal_state_vector.push_back(0.0);
-        goal_state_vector.push_back(0.55);
-
-
-        std::vector<double> start_config(goal_state_vector.size(), 0.0);
-        builder.setStartConfiguration(start_config);
-        auto idk = builder.getStartConfiguration();
-
-        builder.initialize();
-
-        // std::this_thread::sleep_for(std::chrono::milliseconds(10000));
-
-        darts::TSR::Specification goal_spec;
-        goal_spec.setFrame(maze_name, "cube1", "base_link");
-        goal_spec.setPose(0.5, -0.25, 0.75, 1, 0 ,0 ,0);
-        auto goal_tsr = std::make_shared<darts::TSR>(world, goal_spec);
-        auto goal = builder.getGoalTSR(goal_tsr);
-
-        //auto goal = builder.getGoalConfiguration(goal_state_vector);
-        goal->setThreshold(0.01);
-        builder.setGoal(goal);
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-        auto rrt = std::make_shared<ompl::geometric::RRTConnect>(builder.info, true);
-        rrt->setRange(0.1);
-        builder.ss->setPlanner(rrt);
-
-        builder.setup();
-
-        goal->startSampling();
-        ompl::base::PlannerStatus solved = builder.ss->solve(600.0);
-        goal->stopSampling();
-        if (solved)
-        {
-            RBX_INFO("Found solution!");
-            window.animatePath(builder, builder.getSolutionPath(),2,15);
-
-            builder.getSolutionPath().printAsMatrix(std::cout);
-
-        }
-        else
-            RBX_WARN("No solution found");
-    };
-
-
     window.run([&] {
+        std::vector<std::string> joint_names =get_joint_names(world);
+        d_values = get_domain_values(joint_names);
+        d_maps = get_permutations();
 
-        std::map<std::string,double> assigned;
-        std:: cout << backtracking(assigned,world,window) << std::endl;
+        std::vector<std::pair<std::string,double>> assigned;
+        solve_backtracking(world, assigned,window);
+        // std:: cout << backtracking(assigned,world,window) << std::endl;
+       // plan_solution_all(assigned);
         std::this_thread::sleep_for(std::chrono::milliseconds(200000));
-        move_cube(assigned,world,window);
-//        plan_solution_all(assigned);
-
+       // move_cube(assigned,world,window);
     });
 
     return 0;
 }
+
+/*const auto &plan_solution_all = [&](std::unordered_map<std::string,double> assignment) {
+        darts::PlanBuilder builder(world);
+        std::vector<double> goal_state_vector;
+
+        for(auto const &a : assignment){
+            builder.addGroup("maze",a.first);
+            goal_state_vector.push_back(a.second);
+        }
+
+builder.addGroup(maze_name, "cube_gr1");
+builder.addGroup(maze_name, "cube_gr2");
+builder.addGroup(maze_name, "doorgr1");
+builder.addGroup(maze_name, "doorgr2");
+builder.addGroup(maze_name, "doorgr3");
+RBX_INFO("Trying following assignment: ");
+print_assigned(assignment);
+
+goal_state_vector.push_back(0.0);
+goal_state_vector.push_back(0.55);
+
+
+std::vector<double> start_config(goal_state_vector.size(), 0.0);
+builder.setStartConfiguration(start_config);
+auto idk = builder.getStartConfiguration();
+
+builder.initialize();
+
+// std::this_thread::sleep_for(std::chrono::milliseconds(10000));
+
+darts::TSR::Specification goal_spec;
+goal_spec.setFrame(maze_name, "cube1", "base_link");
+goal_spec.setPose(0.5, -0.25, 0.75, 1, 0 ,0 ,0);
+auto goal_tsr = std::make_shared<darts::TSR>(world, goal_spec);
+auto goal = builder.getGoalTSR(goal_tsr);
+
+//auto goal = builder.getGoalConfiguration(goal_state_vector);
+goal->setThreshold(0.01);
+builder.setGoal(goal);
+
+std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+auto rrt = std::make_shared<ompl::geometric::RRTConnect>(builder.info, true);
+rrt->setRange(0.1);
+builder.ss->setPlanner(rrt);
+
+builder.setup();
+
+goal->startSampling();
+ompl::base::PlannerStatus solved = builder.ss->solve(600.0);
+goal->stopSampling();
+if (solved)
+{
+RBX_INFO("Found solution!");
+window.animatePath(builder, builder.getSolutionPath(),2,15);
+std::ofstream fs("values.txt");
+builder.getSolutionPath().printAsMatrix(fs);
+
+}
+else
+RBX_WARN("No solution found");
+};
+*/
