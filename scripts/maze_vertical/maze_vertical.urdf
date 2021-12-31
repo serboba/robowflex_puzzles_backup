@@ -1,0 +1,184 @@
+<?xml version="1.0"?>
+  <robot name="cube_scene">
+    <link name="base_link"/>
+
+    <link name="table">
+      <visual>
+        <geometry>
+          <mesh filename="file:///home/serboba/Desktop/blenderFLEX/maze_vertical.dae" scale = " 0.50 0.50 0.50"/>
+        </geometry>
+        <origin rpy="0 0 0" xyz="0 0 0" />
+
+<material name = "">
+  <color rgba="0.88235294117 0.90588235294 0.96078431372 1"/>
+      </material>
+
+      </visual>
+
+      <collision>
+        <geometry>
+          <mesh filename="file:///home/serboba/Desktop/blenderFLEX/maze_vertical.dae" scale = " 0.50 0.50 0.50"/>
+        </geometry>
+        <origin rpy="0 0 0" xyz="0 0 0" />       
+       </collision>
+    </link>
+
+    <link name="cube1">
+      <visual>
+        <geometry>
+          <box size="0.1 0.1 0.1"/>
+        </geometry>
+        <origin rpy="0 0 0" xyz="0 0 0" />
+      <material name = "">
+          <color rgba="0.0 0.8 0.0 1.0"/>
+      </material>
+      </visual>
+      <collision>
+        <geometry>
+          <box size="0.1 0.1 0.1"/>
+        </geometry>
+        <origin rpy="0 0 0" xyz="0 0 0" />       
+       </collision>
+    </link>
+
+     <link name="door1">
+      <visual>
+        <geometry>
+          <box size="0.13 0.275 0.03"/>
+        </geometry>
+        <origin rpy="0 0 0" xyz="0.0 -0.1375 0" />
+        <material name = "">
+          <color rgba="0.6901 0.2509 0.2509 1.0"/>
+      </material>
+      </visual>
+      <collision>
+         <geometry>
+          <box size="0.13 0.275 0.03"/>
+        </geometry>
+        <origin rpy="0 0 0" xyz="0.0 -0.1375 0" />      
+       </collision>
+    </link>
+
+     <link name="door2">
+      <visual>
+      <origin rpy="0 0 0" xyz="0 0 0.105" />
+        <geometry>
+          <box size="0.13 0.03 0.21"/>
+        </geometry>
+             <material name = "">
+          <color rgba="0.6901 0.2509 0.2509 1.0"/>
+      </material>
+      </visual>
+      <collision>       
+        <origin rpy="0 0 0" xyz="0 0 0.105" />
+        <geometry>
+          <box size="0.13 0.03 0.21"/>
+        </geometry>
+       </collision>
+    </link>
+
+
+     <link name="door3">
+      <visual>
+      <origin rpy="0 0 0" xyz="0 0 0.105" />
+        <geometry>
+          <box size="0.13 0.03 0.21"/>
+        </geometry>
+             <material name = "">
+          <color rgba="0.6901 0.2509 0.2509 1.0"/>
+      </material>
+      </visual>
+      <collision>       
+        <origin rpy="0 0 0" xyz="0 0 0.105" />
+        <geometry>
+          <box size="0.13 0.03 0.21"/>
+        </geometry>
+       </collision>
+    </link>
+
+
+  <link name="door4">
+      <visual>
+      <origin rpy="0 0 0" xyz="0 0 0.105" />
+        <geometry>
+          <box size="0.13 0.03 0.21"/>
+        </geometry>
+             <material name = "">
+          <color rgba="0.6901 0.2509 0.2509 1.0"/>
+      </material>
+      </visual>
+      <collision>       
+        <origin rpy="0 0 0" xyz="0 0 0.105" />
+        <geometry>
+          <box size="0.13 0.03 0.21"/>
+        </geometry>
+       </collision>
+    </link>
+
+
+<link name ="cube_x"/>
+
+<joint name="table_j" type="fixed">
+    <origin rpy="1.57 1.57 -1.57" xyz="1.25 -0.3 1.0" />
+    <parent link="base_link" />
+    <child link="table" />
+    <axis xyz="0 1 0" />
+  </joint>
+
+
+
+<joint name="cube_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.75 0.1 1.3" />
+    <parent link="base_link" />
+    <child link="cube_x" />
+   <axis xyz="0 1 0" />
+  <limit lower="-0.9" upper="0.2" effort="0.05" velocity="1.57"/>
+  </joint>
+
+
+<joint name="cube_joint2" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0 0 0.0" />
+    <parent link="cube_x" />
+    <child link="cube1" />
+   <axis xyz="0 0 1" />
+  <limit lower="-0.8" upper="0.1" effort="0.05" velocity="1.57"/>
+  </joint>
+
+
+    <joint name="door_joint1" type="revolute">
+        <origin rpy="0 0 0" xyz="0.745 0.2275 0.985"/>
+        <parent link="base_link"/>
+        <child link="door1"/>
+        <axis xyz="1 0 0"/>
+        <limit lower="-1.57" upper="1.57" effort="0.05" velocity="1.57"/>
+    </joint>
+
+
+    <joint name="door_joint2" type="revolute">
+        <origin rpy="0 0 0" xyz="0.745 -0.075 0.74"/>
+        <parent link="base_link"/>
+        <child link="door2"/>
+        <axis xyz="1 0 0"/>
+        <limit lower="-1.57" upper="1.57" effort="0.05" velocity="1.57"/>
+    </joint>
+
+
+ <joint name="door_joint3" type="revolute">
+        <origin rpy="0 0 0" xyz="0.745 -0.075 0.475"/>
+        <parent link="base_link"/>
+        <child link="door3"/>
+        <axis xyz="1 0 0"/>
+        <limit lower="-1.57" upper="0.0" effort="0.05" velocity="1.57"/>
+    </joint>
+
+
+
+     <joint name="door_joint4" type="revolute">
+        <origin rpy="0 0 0" xyz="0.745 -0.585 1.29"/>
+        <parent link="base_link"/>
+        <child link="door4"/>
+        <axis xyz="1 0 0"/>
+        <limit lower="-1.57" upper="1.57" effort="0.05" velocity="1.57"/>
+    </joint>
+
+</robot>
