@@ -36,7 +36,7 @@
 #include <robowflex_dart/space.h>
 #include <robowflex_dart/tsr.h>
 #include <robowflex_dart/world.h>
-#include <robowflex_dart/solution_analyzer.h>
+#include <robowflex_dart/solution_parser.h>
 
 using namespace robowflex;
 
@@ -53,7 +53,7 @@ void reset_joints(std::shared_ptr<darts::World> &world){
     auto groups = world->getRobot("maze")->getGroups();
 
     for(auto &a : groups){
-       // std::cout << "resetting joint group : " << a.first;
+        // std::cout << "resetting joint group : " << a.first;
         for(auto &i : a.second)
             world->getRobot("maze")->setJoint(i,0.0);
     }
@@ -152,9 +152,9 @@ bool move_cube (std::vector<std::pair<std::string,double>> assignment, std::shar
 
 bool find_in_vector(std::vector<std::string> vec, std::string str){
     BOOST_FOREACH(std::string s, vec){
-        if(s == str)
-            return true;
-    }
+                    if(s == str)
+                        return true;
+                }
     return false;
 }
 
@@ -188,11 +188,11 @@ bool consistent (std::vector<std::pair<std::string,double>> assignment,std::shar
 
 std::pair<std::string,std::vector<double>> select_unassigned_joint(std::vector<std::pair<std::string,double>> assigned_){
     std::vector<std::string> assigned_joints;
-        for(auto& joints : assigned_){
-            assigned_joints.push_back(joints.first);
-            std::cout << "Pushing : " << joints.first << "-";
-        }
-        std::cout <<"\n" << std::endl;
+    for(auto& joints : assigned_){
+        assigned_joints.push_back(joints.first);
+        std::cout << "Pushing : " << joints.first << "-";
+    }
+    std::cout <<"\n" << std::endl;
 
     std::pair<std::string,std::vector<double>> var;
     for(auto & d_var : d_values){
@@ -204,13 +204,13 @@ std::pair<std::string,std::vector<double>> select_unassigned_joint(std::vector<s
 }
 
 void pop_element(std::vector<std::pair<std::string,double>> &assigned_){
-   /*
-    for(auto it = assigned_.begin(); it != assigned_.end(); it++){
-        std::cout <<"pop: " <<  it->first << std::endl;
-    }
-    auto it = assigned_.end();
-    it--;
-*/
+    /*
+     for(auto it = assigned_.begin(); it != assigned_.end(); it++){
+         std::cout <<"pop: " <<  it->first << std::endl;
+     }
+     auto it = assigned_.end();
+     it--;
+ */
     assigned_.erase(std::prev(assigned_.end()));
 }
 
@@ -283,24 +283,24 @@ bool solve_backtracking(std::shared_ptr<darts::World> world, std::vector<std::pa
 
     std::vector<std::string> joint_names = get_joint_names(world);
     std::cout << joint_names[0] << "-" <<joint_names[1] << "- " << joint_names[2] << std::endl;
-   // auto sasfjsd = d_maps;
-  //  if(backtracking(assigned,world,window)){
-  //      std::cout << "FOUND SOLUTION FIRST TRY" << std::endl;
-   //     return true;
-   // }else{
-        std::cout << "NO SOLUTION FOUND FIRST ATTEMPT, TRYING DIFFERENT PERMUTATIONS" << std::endl;
-        for(int i = 0 ; i <d_maps.size() ; i++){
-            d_values = d_maps[i];
-            std::cout << d_values.begin()->first << "-" << std::endl;
+    // auto sasfjsd = d_maps;
+    //  if(backtracking(assigned,world,window)){
+    //      std::cout << "FOUND SOLUTION FIRST TRY" << std::endl;
+    //     return true;
+    // }else{
+    std::cout << "NO SOLUTION FOUND FIRST ATTEMPT, TRYING DIFFERENT PERMUTATIONS" << std::endl;
+    for(int i = 0 ; i <d_maps.size() ; i++){ // i = SET PERMUTATION YOU WANT TO BEGIN WITH
+        d_values = d_maps[i];
+        std::cout << d_values.begin()->first << "-" << std::endl;
 
-            //d_values = get_domain_values(joint_names);
-            if (backtracking(assigned,world,window)){
-                std::cout << "FOUND SOLUTION ! " << std::endl;
-                return true;
-            }
-
+        //d_values = get_domain_values(joint_names);
+        if (backtracking(assigned,world,window)){
+            std::cout << "FOUND SOLUTION ! " << std::endl;
+            return true;
         }
-   // }
+
+    }
+    // }
 }
 
 int main(int argc, char **argv)
@@ -310,8 +310,8 @@ int main(int argc, char **argv)
 
 
     auto maze_dart = darts::loadMoveItRobot("maze",
-                                             "/home/serboba/rb_ws/devel/lib/robowflex_dart/maze.urdf",
-                                             "/home/serboba/rb_ws/devel/lib/robowflex_dart/maze.srdf");
+                                            "/home/serboba/rb_ws/devel/lib/robowflex_dart/maze.urdf",
+                                            "/home/serboba/rb_ws/devel/lib/robowflex_dart/maze.srdf");
 
 
     auto maze_name = maze_dart->getName();
@@ -326,75 +326,12 @@ int main(int argc, char **argv)
         d_values = get_domain_values(joint_names);
         d_maps = get_permutations();
 
+        std::this_thread::sleep_for(std::chrono::milliseconds(10000));
         std::vector<std::pair<std::string,double>> assigned;
         solve_backtracking(world, assigned,window);
-        // std:: cout << backtracking(assigned,world,window) << std::endl;
-       // plan_solution_all(assigned);
         std::this_thread::sleep_for(std::chrono::milliseconds(200000));
-       // move_cube(assigned,world,window);
+        // move_cube(assigned,world,window);
     });
 
     return 0;
 }
-
-/*const auto &plan_solution_all = [&](std::unordered_map<std::string,double> assignment) {
-        darts::PlanBuilder builder(world);
-        std::vector<double> goal_state_vector;
-
-        for(auto const &a : assignment){
-            builder.addGroup("maze",a.first);
-            goal_state_vector.push_back(a.second);
-        }
-
-builder.addGroup(maze_name, "cube_gr1");
-builder.addGroup(maze_name, "cube_gr2");
-builder.addGroup(maze_name, "doorgr1");
-builder.addGroup(maze_name, "doorgr2");
-builder.addGroup(maze_name, "doorgr3");
-RBX_INFO("Trying following assignment: ");
-print_assigned(assignment);
-
-goal_state_vector.push_back(0.0);
-goal_state_vector.push_back(0.55);
-
-
-std::vector<double> start_config(goal_state_vector.size(), 0.0);
-builder.setStartConfiguration(start_config);
-auto idk = builder.getStartConfiguration();
-
-builder.initialize();
-
-// std::this_thread::sleep_for(std::chrono::milliseconds(10000));
-
-darts::TSR::Specification goal_spec;
-goal_spec.setFrame(maze_name, "cube1", "base_link");
-goal_spec.setPose(0.5, -0.25, 0.75, 1, 0 ,0 ,0);
-auto goal_tsr = std::make_shared<darts::TSR>(world, goal_spec);
-auto goal = builder.getGoalTSR(goal_tsr);
-
-//auto goal = builder.getGoalConfiguration(goal_state_vector);
-goal->setThreshold(0.01);
-builder.setGoal(goal);
-
-std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-auto rrt = std::make_shared<ompl::geometric::RRTConnect>(builder.info, true);
-rrt->setRange(0.1);
-builder.ss->setPlanner(rrt);
-
-builder.setup();
-
-goal->startSampling();
-ompl::base::PlannerStatus solved = builder.ss->solve(600.0);
-goal->stopSampling();
-if (solved)
-{
-RBX_INFO("Found solution!");
-window.animatePath(builder, builder.getSolutionPath(),2,15);
-std::ofstream fs("values.txt");
-builder.getSolutionPath().printAsMatrix(fs);
-
-}
-else
-RBX_WARN("No solution found");
-};
-*/
