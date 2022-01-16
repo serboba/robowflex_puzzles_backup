@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<robot name="maze2">
+
+
+    <group name="cube_gr1">
+     <joint name="cube_joint" />
+     <joint name="cube_joint2" />
+    </group>  
+
+    <group name="obs_gr">
+     <joint name="obs_joint" />
+     <joint name="obs_joint2" />
+    </group>  
+
+
+    <group name="doorgr1">
+     <joint name="door_joint1" />
+    </group>
+
+
+
+    <disable_collisions link1="base_link" link2="table" reason="default" />
+
+    <disable_collisions link1="base_link" link2="door1" reason="default" />
+
+    <disable_collisions link1="base_link" link2="cube1" reason="default" />
+    <disable_collisions link1="base_link" link2="cube_x" reason="default" />
+
+    <disable_collisions link1="base_link" link2="obs" reason="default" />
+    <disable_collisions link1="base_link" link2="obs_x" reason="default" />
+
+
+    <disable_collisions link1="table" link2="door1" reason="default" />
+
+    <disable_collisions link1="table" link2="door2" reason="default" />
+    
+
+</robot>
