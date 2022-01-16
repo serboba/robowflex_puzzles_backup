@@ -34,11 +34,13 @@ std::vector<std::vector<int>> PlanBuilder::findGroupedIndices(const ompl::base::
             //FOUND GROUP
             std::vector<int> group_index;
             int index_it = 0;
-            for (int j = 0; j < rspace->getDimension(); j++) {
+            for (int j = 0; j < groupDim; j++) {
                 if (temp_values.at(j) == temp_group(index_it)) {
                     group_index.push_back(j);
                     index_it++;
                 }
+                if(index_it ==groupDim)
+                    break;
             }
             group_indices.push_back(group_index);
         }
@@ -150,7 +152,7 @@ ompl::geometric::PathGeometric PlanBuilder::pathIsolateStates(ompl::geometric::P
 
     }
 
-    std::ofstream fs("maze3doors_pathsep.txt");
+    std::ofstream fs("maze_sol_pathiso.txt");
     path_new.printAsMatrix(fs);
     std::cout << "isolated path" << std::endl;
     return path_new;
