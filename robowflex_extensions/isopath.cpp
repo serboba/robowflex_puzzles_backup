@@ -8,6 +8,7 @@
 using namespace robowflex::darts;
 #include <fstream>
 
+#include <boost/math/special_functions/factorials.hpp>
 
 std::vector<std::vector<int>> PlanBuilder::findGroupedIndices(const ompl::base::State *const rfrom) {
 
@@ -34,7 +35,7 @@ std::vector<std::vector<int>> PlanBuilder::findGroupedIndices(const ompl::base::
             //FOUND GROUP
             std::vector<int> group_index;
             int index_it = 0;
-            for (int j = 0; j < groupDim; j++) {
+            for (int j = 0; j < temp_values.size(); j++) {
                 if (temp_values.at(j) == temp_group(index_it)) {
                     group_index.push_back(j);
                     index_it++;
@@ -69,8 +70,8 @@ std::vector<std::vector<int>> getDiffIndices(std::vector<double> s1,std::vector<
         }
 
     }
-
-    result.push_back(group_vec);
+    if (group_vec.size() >0)
+        result.push_back(group_vec);
     result.insert(result.end(),diff_vec.begin(),diff_vec.end());
     return result;
 
@@ -78,17 +79,17 @@ std::vector<std::vector<int>> getDiffIndices(std::vector<double> s1,std::vector<
 
 
 bool PlanBuilder::getIntermediateState(const ompl::base::State *from,std::vector<double> to,
-                                 ompl::base::State *state, std::vector<int> index_group){
+                                       ompl::base::State *state, std::vector<int> index_group){
     std::vector<double> s_new_v;
     ompl::base::State *s_new = space->allocState();
 
     space->copyToReals(s_new_v,from);
-    for(int j = 0; j< index_group.size(); j++){
-        s_new_v[index_group[j]] = to[index_group[j]];
+    for(int l = 0; l< index_group.size(); l++){
+        s_new_v[index_group[l]] = to[index_group[l]];
     }
     space->copyFromReals(s_new,s_new_v);
-    space->copyState(state,s_new);
-
+    //space->copyState(state,s_new);
+    space->copyFromReals(state,s_new_v);
     if(space->equalStates(state,from))
         return false;
 
@@ -108,7 +109,7 @@ ompl::geometric::PathGeometric PlanBuilder::pathIsolateStates(ompl::geometric::P
     std::vector<ompl::base::State *> &states_new = path_new.getStates();
 
     states_new.push_back(states[0]);
-
+    
     for(int i = 0; i < path.getStateCount()-1; i++)
     {
         std::vector<double> s_from,s_to;
@@ -119,33 +120,58 @@ ompl::geometric::PathGeometric PlanBuilder::pathIsolateStates(ompl::geometric::P
         std::vector<std::vector<int>> diff_indices = getDiffIndices(s_from,s_to, group_index);
         bool iso_success = false;
 
+        int valid_path_check = 1;
+        for(int j = 1; j <= diff_indices.size(); j++)
+            valid_path_check *= j;
+
+        int counter = 0;
         do
         {
             std::vector<ompl::base::State *> temp_states;
-            temp_states.push_back(states_new.back());
-
+            ompl::base::State * start_state = space->allocState();
+            space->copyState(start_state, states_new.back());
             for(int j = 0; j< diff_indices.size(); j++)
             {
                 ompl::base::State *s_new = info->allocState();
-                if(!getIntermediateState(temp_states.back(),s_to,s_new,diff_indices.at(j)))
-                    RBX_WARN("ERR: couldn't create new state");
-
-                if(info->checkMotion(temp_states.back(),s_new) && info->isValid(s_new))
+                if(!getIntermediateState(start_state, s_to, s_new, diff_indices.at(j))){
+                    std::cout << "ERR: no state could be created" << std::endl;
+                    break;
+                }
+                /*
+                std::cout << "start" << std::endl;
+                space->printState(states[i]);
+                space->printState(states[i+1]);
+                space->printState(start_state);
+                space->printState(s_new);
+                std::cout <<"check motion " << info->checkMotion(start_state,s_new) << std::endl;
+                std::cout <<"diff size " << diff_indices.size() <<" , j : " << j <<  std::endl;
+                std::cout <<"isvalid " << info->isValid(s_new) << std::endl;
+                std::cout << "start equal : " << space->equalStates(s_new,states[i+1]) <<  std::endl;
+                */
+                 if(info->checkMotion(start_state,s_new))
                 {
                     temp_states.push_back(s_new);
-                    if(j+1 == diff_indices.size())
-                    {
-                        isolated_sub_path=temp_states;
+                    space->copyState(start_state,s_new);
+                    if(j+1 == diff_indices.size()){
                         iso_success = true;
                     }
                 }
                 else
                 {
-                    //std::cout << "ERR : FOUND NEW STATE IS NOT VALID OR NO MOTION POSSIBLE,TRYING NEXT PERMUTATION" << std::endl;
                     temp_states.clear();
                     break;
                 }
+
             }
+            counter++;
+            if(iso_success){
+                isolated_sub_path=temp_states;
+            }else if(valid_path_check < counter){
+                RBX_WARN("PATH HAS INVALID STATES OR IS DAMAGED. TRIED ALL COMBINATIONS BUT NO ISOLATION SEQUENCE WAS FOUND.");
+                std::cout << "ABORT" << std::endl;
+                return path_new;
+            }
+            space->freeState(start_state);
         }while(std::next_permutation(diff_indices.begin(),diff_indices.end()),iso_success!=true);
 
         states_new.insert(states_new.end(),isolated_sub_path.begin(),isolated_sub_path.end());  // add the founded sub-isolated path
@@ -161,13 +187,11 @@ ompl::geometric::PathGeometric PlanBuilder::pathIsolateStates(ompl::geometric::P
 
 
 /*
-
             for(int j = 0; j< diff_indices.size(); j++)
             {
                 ompl::base::State *s_new = info->allocState();
                 if(!getIntermediateState(tempStates.back(),s_to,s_new,diff_indices.at(j)))
                     RBX_WARN("ERR: couldn't create new state");
-
                 if(info->checkMotion(tempStates.back(),s_new) && info->isValid(s_new))
                 {
                     tempStates.push_back(s_new);
@@ -184,9 +208,6 @@ ompl::geometric::PathGeometric PlanBuilder::pathIsolateStates(ompl::geometric::P
                     break;
                 }
             }
-
-
-
  */
 
 /*
@@ -195,7 +216,6 @@ bool PlanBuilder::getIsolatedSubpath(std::vector<std::vector<int>> diff_indices,
         ompl::base::State *s_new = info->allocState();
         if (!getIntermediateState(tempStates.back(), s_to, s_new, diff_indices.at(j)))
             RBX_WARN("ERR: couldn't create new state");
-
         if (info->checkMotion(tempStates.back(), s_new) && info->isValid(s_new)) {
             tempStates.push_back(s_new);
             if (j + 1 == diff_indices.size()) {
@@ -206,8 +226,6 @@ bool PlanBuilder::getIsolatedSubpath(std::vector<std::vector<int>> diff_indices,
             tempStates.clear();
             return false;
         }
-
     }
 }
-
 */

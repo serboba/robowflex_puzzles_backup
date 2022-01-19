@@ -24,7 +24,7 @@ int findIndex(std::vector<double> distances, double t){
         }
         // temp_sum += distances.at(i);
     }
-    return 0;
+    return distances.size()-1;
 }
 
 std::vector<double> getDistances(const StateSpace::StateType *const rfrom, const StateSpace::StateType *const rto)  {
@@ -48,13 +48,13 @@ std::vector<double> getDistances(const StateSpace::StateType *const rfrom, const
 void robowflex::darts::interpolate_iso(const ompl::base::State *from, const ompl::base::State *to, double t,
                              ompl::base::State *state)
 {
-
     const auto &rfrom = from->as<StateSpace::StateType>();
     const auto &rto = to->as<StateSpace::StateType>();
     auto *rstate = state->as<StateSpace::StateType>();
    // std::vector<std::pair<int,int>> groupIndex = findGroupIndex(rfrom, rto);
 
     std::vector<double> distances = getDistances(rfrom, rto);
+
     int index = findIndex(distances,t);
 
     double d_interpolated = 0.0;
@@ -66,8 +66,8 @@ void robowflex::darts::interpolate_iso(const ompl::base::State *from, const ompl
 
     double s = (t-d_interpolated)/distances.at(index);
 
-    //std::cout << " d_interpolated : " << d_interpolated << " , t : " << t << ", s: " << s << ", index: "<< index
-    //         << ", s/dist:" << s/distances.at(index) << ", rfrom+s/dist : " <<rfrom->values[index] + s*(rto->values[index]-rfrom->values[index]) <<   std::endl;
+//    std::cout << " d_interpolated : " << d_interpolated << " , t : " << t << ", s: " << s << ", index: "<< index
+//             << ", s/dist:" << s/distances.at(index) << ", rfrom+s/dist : " <<rfrom->values[index] + s*(rto->values[index]-rfrom->values[index]) <<   std::endl;
 
     rstate->values[index] = rfrom->values[index] + s*(rto->values[index]-rfrom->values[index]);
 

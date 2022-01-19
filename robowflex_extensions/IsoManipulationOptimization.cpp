@@ -20,10 +20,12 @@ ompl::base::Cost ompl::base::IsoManipulationOptimization::stateCost(const State 
 
 ompl::base::Cost ompl::base::IsoManipulationOptimization::motionCost(const State *s1, const State *s2) const
 {
-
     int cost = 0;
     int nd = si_->getStateSpace()->getValueLocations().size();
     const base::StateSpacePtr &space = si_->getStateSpace();
+    if(s1 == NULL || s2 == NULL)
+        return identityCost();
+
     std::vector<double> s1_vals,s2_vals;
     space->copyToReals(s1_vals,s1);
     space->copyToReals(s2_vals,s2);
