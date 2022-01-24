@@ -1,9 +1,12 @@
 //
 // Created by serboba on 31.12.21.
 //
-#include <robowflex_dart/isospace.h>
-
+#include <robowflex_dart/space.h>
+#include <algorithm>
+#include <random>
 using namespace robowflex::darts;
+
+
 
 double distance_new(double v1, double v2){
 
@@ -14,53 +17,135 @@ double distance_new(double v1, double v2){
 int findIndex(std::vector<double> distances, double t){
     double sum = 0.0;
     double temp_sum = 0.0;
-    for(int i = 0; i < distances.size() ; i++){ // 0.4 , 0.02,0, 0.5
+    for(size_t i = 0; i < distances.size() ; i++){
         sum += distances.at(i);
-        //  std::cout << " test :" << std::endl;
-        //  if(sum >= t && temp_sum>= 0.0 && temp_sum < 0.01){
         if(sum >= t ){
-
             return i;
         }
-        // temp_sum += distances.at(i);
     }
     return distances.size()-1;
 }
 
-std::vector<double> getDistances(const StateSpace::StateType *const rfrom, const StateSpace::StateType *const rto)  {
+
+std::vector<double> getDistances(std::vector<double> rfrom, std::vector<double> rto)  {
     double total_dist = 0.0;
     std::vector<double> distances;
-    for(int i = 0; i < rfrom->data.size(); i++){
-        double dj = distance_new(rfrom->values[i],rto->values[i]);
+    for(size_t i = 0; i < rfrom.size(); i++){
+        double dj = distance_new(rfrom.at(i),rto.at(i));
         distances.push_back(dj);
         total_dist += dj;
     }
 
-
-    for (int j= 0; j< rfrom->data.size(); j++){
+    for (int j= 0; j< rfrom.size(); j++){
         distances[j] /= total_dist;
         //   std::cout << "normalized : " << distances[j] << std::endl;
     }
     return distances;
 }
 
+std::vector<std::vector<int>> StateSpace::findGroupIndex() const {
 
-void robowflex::darts::interpolate_iso(const ompl::base::State *from, const ompl::base::State *to, double t,
-                             ompl::base::State *state)
+    std::vector<std::string> group_names = getGroups();
+    std::vector<std::vector<int>> group_indices;
+    ompl::base::State *temp_state = allocState();
+    std::vector<double> temp_values;
+
+    for(size_t i = 0; i < getDimension(); i++)
+        temp_values.push_back(0.0);
+
+    copyFromReals(temp_state,temp_values);
+
+    for (size_t i = 0; i < group_names.size(); i++) {
+        int groupDim = getGroupDimension(group_names[i]);
+
+        if (groupDim > 1) {
+            //FOUND GROUP
+
+            Eigen::VectorXd temp_group(groupDim);
+            temp_group << -100.0,-100.0;  // random ???
+            setGroupState(group_names[i],temp_state,temp_group);
+            copyToReals(temp_values, temp_state);
+            std::vector<int> group_index;
+            int index_it = 0;
+            for (size_t j = 0; j < temp_values.size(); j++) {
+                if (temp_values.at(j) == temp_group(index_it)) {
+                    group_index.push_back(j);
+                    index_it++;
+                }
+                if(index_it ==groupDim)
+                    break;
+            }
+            group_indices.push_back(group_index);
+        }
+    }
+    freeState(temp_state);
+    return group_indices;
+}
+
+
+std::vector<int> StateSpace::shuf(int dim) const {
+
+    std::vector<int> shuffleIndices;
+    for(size_t i =0 ; i < dim ; i++)
+        shuffleIndices.push_back(i);
+
+    std::random_shuffle(shuffleIndices.begin(),shuffleIndices.end());
+
+    return shuffleIndices;
+}
+
+void shuffleState(std::vector<double> &st, std::vector<int> shuffleIndex){
+    std::vector<double> shuffled_st;
+    for(size_t i = 0; i < shuffleIndex.size() ; i++){
+        shuffled_st.push_back(st.at(shuffleIndex.at(i)));
+    }
+    st = shuffled_st;
+}
+
+void reverseShuffle(std::vector<double> &st, std::vector<int> shuffleIndex){
+    std::vector<double> reverse;
+    for(size_t i = 0; i< shuffleIndex.size(); i++){
+        reverse.push_back(0.0);
+    }
+
+    for(size_t i = 0; i<shuffleIndex.size(); i++){
+        reverse[shuffleIndex.at(i)] =  st.at(i);
+    }
+    st= reverse;
+}
+
+
+
+void StateSpace::interpolate(const ompl::base::State *from, const ompl::base::State *to, double t,  // WITH SHUFFLE
+                             ompl::base::State *state) const
 {
+
     const auto &rfrom = from->as<StateSpace::StateType>();
     const auto &rto = to->as<StateSpace::StateType>();
     auto *rstate = state->as<StateSpace::StateType>();
-   // std::vector<std::pair<int,int>> groupIndex = findGroupIndex(rfrom, rto);
 
-    std::vector<double> distances = getDistances(rfrom, rto);
+    std::vector<double> rfrom_,rstate_,rto_;
+    copyToReals(rstate_,rfrom);
+    copyToReals(rfrom_,rfrom);
+    copyToReals(rto_,rto);
 
+
+    std::vector<int> shuffleIndices = shuf(rfrom_.size());
+
+    shuffleState(rfrom_,shuffleIndices);
+    shuffleState(rto_,shuffleIndices);
+
+    std::vector<std::vector<int>> groupIndex = findGroupIndex();
+    std::vector<int> group_index = groupIndex.at(0);
+
+
+    std::vector<double> distances = getDistances(rfrom_, rto_);
     int index = findIndex(distances,t);
 
     double d_interpolated = 0.0;
 
     for (int i = 0; i < index; i++){
-        rstate->values[i] = rto->values[i];
+        rstate_[i] = rto_[i];
         d_interpolated+= distances.at(i);
     }
 
@@ -69,205 +154,79 @@ void robowflex::darts::interpolate_iso(const ompl::base::State *from, const ompl
 //    std::cout << " d_interpolated : " << d_interpolated << " , t : " << t << ", s: " << s << ", index: "<< index
 //             << ", s/dist:" << s/distances.at(index) << ", rfrom+s/dist : " <<rfrom->values[index] + s*(rto->values[index]-rfrom->values[index]) <<   std::endl;
 
-    rstate->values[index] = rfrom->values[index] + s*(rto->values[index]-rfrom->values[index]);
+    rstate_[index] = rfrom_[index] + s*(rto_[index]-rfrom_[index]);
 
-    for(int i = index+1; i < rfrom->data.size(); i++){
-        rstate->values[i] = rfrom->values[i];
+    for(size_t i = index+1; i < rfrom_.size(); i++){
+        rstate_[i] = rfrom_[i];
     }
+
+
+    reverseShuffle(rstate_,shuffleIndices);
+    reverseShuffle(rfrom_,shuffleIndices);
+    reverseShuffle(rto_,shuffleIndices);
+
+    copyFromReals(rstate,rstate_);
 
 /*
     std::cout << "from: ";
-    for(int i = 0; i < 5; i++)
-        std::cout << rfrom->values[i] << ", ";
+    for(int i = 0; i < rfrom_.size(); i++)
+        std::cout << rfrom_.at(i) << ", ";
     std::cout << std::endl;
 
 
     std::cout << "to: ";
-    for(int i = 0; i < 5; i++)
-        std::cout << rto->values[i] << ", ";
+    for(int i = 0; i < rto_.size(); i++)
+        std::cout << rto_.at(i) << ", ";
     std::cout << std::endl;
 
     std::cout << "out: ";
-    for(int i = 0; i < 5; i++)
-        std::cout << rstate->values[i] << ", ";
+    for(int i = 0; i < rstate_.size(); i++)
+        std::cout << rstate_.at(i) << ", ";
     std::cout <<"\n" << std::endl;
 */
 }
 
 
 
-
 /*
-std::vector<std::pair<int,int>> StateSpace::findGroupIndex(const StateSpace::StateType *const rfrom,
-                                                           const StateSpace::StateType *const rto) const {
-    std::vector<std::string> group_names = getGroups();
-    std::vector<std::pair<int,int>> indexSize;
+void StateSpace::interpolate(const ompl::base::State *from, const ompl::base::State *to, double t,  // WITHOUT SHUFFLE
+                             ompl::base::State *state) const {
+    const auto &rfrom = from->as<StateSpace::StateType>();
+    const auto &rto = to->as<StateSpace::StateType>();
+    auto *rstate = state->as<StateSpace::StateType>();
 
-    // std::cout << " start" << std::endl;
-    for(int i = 0; i < group_names.size(); i++){
-        //   std::cout << group_names[i] << std::endl;
+    std::vector<double> rfrom_,rstate_,rto_;
+    copyToReals(rstate_,rfrom);
+    copyToReals(rfrom_,rfrom);
+    copyToReals(rto_,rto);
 
-        Eigen::VectorXd sub_group(getGroupDimension(group_names[i]));
-        getGroupState(group_names[i],rfrom, sub_group);
+    std::vector<std::vector<int>> groupIndex = findGroupIndex();
+    std::vector<int> group_index = groupIndex.at(0);
 
-        int size_n = 0;
-        int start_index = -1;
 
-        for (auto const& joint : group_joints_.find(group_names[i])->second) {
-            if(start_index == -1)
-                start_index = joint->getStartInSpace();
-            size_n++;
-        }
-        //  std::cout << " group size: " << size_n << std::endl;
-        //  std::cout << " start index: " << start_index << std::endl;
-        indexSize.push_back(std::make_pair(start_index,size_n));
+    std::vector<double> distances = getDistances(rfrom_, rto_);
+    int index = findIndex(distances,t);
+
+    double d_interpolated = 0.0;
+
+    for (int i = 0; i < index; i++){
+        rstate_[i] = rto_[i];
+        d_interpolated+= distances.at(i);
     }
 
-    return indexSize;
-}
-*/
+    double s = (t-d_interpolated)/distances.at(index);
 
+//    std::cout << " d_interpolated : " << d_interpolated << " , t : " << t << ", s: " << s << ", index: "<< index
+//             << ", s/dist:" << s/distances.at(index) << ", rfrom+s/dist : " <<rfrom->values[index] + s*(rto->values[index]-rfrom->values[index]) <<   std::endl;
 
-/* TRASH
+    rstate_[index] = rfrom_[index] + s*(rto_[index]-rfrom_[index]);
 
- int * shuffleIndex(int s_size, int shuffle_index[]) {
-
-    for(int i =0; i < s_size; i++)
-        shuffle_index[i] = i;
-
-    std::random_shuffle(&shuffle_index[0],&shuffle_index[s_size-1]);
-
-    return shuffle_index;
-}
-
-void shuffleStates(const StateSpace::StateType *const rfrom, const StateSpace::StateType *const rto, int *indexarr) {
-    Eigen::VectorXd temp_from(rfrom->data.size());
-    Eigen::VectorXd temp_to(rfrom->data.size());
-
-    for(int i = 0; i < rfrom->data.size() ; i++){
-        temp_from(i) = rfrom->values[i];
-        temp_to(i) = rto->values[i];
+    for(size_t i = index+1; i < rfrom_.size(); i++){
+        rstate_[i] = rfrom_[i];
     }
 
-    for(int i = 0; i < rfrom->data.size() ; i++){
-        rfrom->values[i] = temp_from(indexarr[i]);
-        rto->values[i] = temp_to(indexarr[i]);
-    }
+    copyFromReals(rstate,rstate_);
 
 }
-
-void undoShuffle(const StateSpace::StateType *const rout, int *indexarr){
-    Eigen::VectorXd temp_out(rout->data.size());
-
-
-    for(int i = 0; i < rout->data.size() ; i++){
-        temp_out(i) = rout->values[i];
-    }
-
-    for(int i = 0; i < rout->data.size() ; i++){
-        rout->values[i] = temp_out(indexarr[i]);
-    }
-
-}
-
-
-
-
-
-
-    std::cout << "fromBEG: ";
-    for(int i = 0; i < 5; i++)
-        std::cout << rfrom->values[i] << ", ";
-    std::cout << std::endl;
-
-
-    std::cout << "toBEG: ";
-    for(int i = 0; i < 5; i++)
-        std::cout << rto->values[i] << ", ";
-    std::cout << std::endl;
-
-
-    Eigen::VectorXd temp_from(rfrom->data.size());
-    Eigen::VectorXd temp_to(rfrom->data.size());
-
-    for(int i = 0; i < rfrom->data.size() ; i++){
-        temp_from(i) = rfrom->values[i];
-        temp_to(i) = rto->values[i];
-    }
-
-
-
-    int p[rfrom->data.size()];
-    int *random_index = shuffleIndex(rfrom->data.size(), p);
-
-    //Eigen::VectorXd temp(rfrom->data.size());
-
-
-    shuffleStates(rfrom, rto, random_index);
-
- undoShuffle(rstate,random_index);
-
-    for(int i = 0; i < rstate->data.size() ; i++){
-        rfrom->values[i] = temp_from(i);
-        rto->values[i] = temp_to(i);
-    }
-
 
  */
-
-
-
-/*
- int sizeflag = 0;
-    int it_;
-
-    for(auto const &temp_ : groupIndex){
-        if(index== temp_.first)
-            if(temp_.second >1){
-                sizeflag = 1;
-                std::cout << "im in for index : " << index << " - temp sec : " << temp_.second << std::endl;
-                it_ = temp_.second;
-                break;
-            }
-
-    }
-
-    if(sizeflag == 0){
-        double s = (t-d_interpolated)/distances.at(index);
-
-        std::cout << " d_interpolated : " << d_interpolated << " , t : " << t << ", s: " << s << ", index: "<< index
-                  << ", s/dist:" << s/distances.at(index) << ", rfrom+s/dist : " <<rfrom->values[index] + s*(rto->values[index]-rfrom->values[index]) <<   std::endl;
-
-
-        rstate->values[index] = rfrom->values[index] + s*(rto->values[index]-rfrom->values[index]);
-
-        std::cout << "no found" << std::endl;
-    }
-    else{
-       // const int index_ =groupIndex[index].second;
-        for(int i = 0; i < it_ ; i++){
-
-            double s = (t-d_interpolated)/distances.at(index);
-
-            if(t-d_interpolated > 0){
-                std::cout << " d_interpolated : " << d_interpolated << " , t : " << t << ", s: " << s << ", index: "<< index
-                          << ", s/dist:" << s/distances.at(index) << ", rfrom+s/dist : " <<rfrom->values[index] + s*(rto->values[index]-rfrom->values[index]) <<   std::endl;
-
-                rstate->values[index] = rfrom->values[index] + s*(rto->values[index]-rfrom->values[index]);
-
-                std::cout << "running time: " << i << std::endl;
-                std::cout << "groupIndex[in]: " << it_ << std::endl;
-
-                d_interpolated += distances.at(index);
-
-                std::cout << "d_interpol: " << d_interpolated << " - t : " << t << std::endl;
-                index++;
-            }
-
-        }
-    }
-
-
-
- */
-

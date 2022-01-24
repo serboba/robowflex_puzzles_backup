@@ -7,6 +7,9 @@
 
 
 #include <ompl/base/OptimizationObjective.h>
+#include <ompl/base/goals/GoalRegion.h>
+#include <ompl/base/goals/GoalLazySamples.h>
+#include <ompl/base/spaces/RealVectorStateSpace.h>
 
 namespace ompl
 {
@@ -28,8 +31,18 @@ namespace ompl
 
             Cost motionCostHeuristic(const State *s1, const State *s2) const override;
 
+
+            //Cost goalRegionCostToGo(const State *state, const Goal *goal) ;
+
+            static  std::vector<int> changedIndex(const std::vector<double> s1, const std::vector<double> s2);
+
+            bool isCostBetterThan(Cost c1, Cost c2) const override;
+            Cost identityCost() const override;
+
+           // Cost combineCosts(Cost c1, Cost c2) const override;
         };
     }
 }
 
 #endif //ROBOWFLEX_DART_ISOMANIPULATIONOPTIMIZATION_H
+
