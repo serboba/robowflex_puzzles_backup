@@ -83,38 +83,6 @@ std::vector<std::vector<int>> StateSpace::findGroupIndex() const {
 }
 
 
-std::vector<int> StateSpace::shuf(int dim) const {
-
-    std::vector<int> shuffleIndices;
-    for(size_t i =0 ; i < dim ; i++)
-        shuffleIndices.push_back(i);
-
-    std::random_shuffle(shuffleIndices.begin(),shuffleIndices.end());
-
-    return shuffleIndices;
-}
-
-void shuffleState(std::vector<double> &st, std::vector<int> shuffleIndex){
-    std::vector<double> shuffled_st;
-    for(size_t i = 0; i < shuffleIndex.size() ; i++){
-        shuffled_st.push_back(st.at(shuffleIndex.at(i)));
-    }
-    st = shuffled_st;
-}
-
-void reverseShuffle(std::vector<double> &st, std::vector<int> shuffleIndex){
-    std::vector<double> reverse;
-    for(size_t i = 0; i< shuffleIndex.size(); i++){
-        reverse.push_back(0.0);
-    }
-
-    for(size_t i = 0; i<shuffleIndex.size(); i++){
-        reverse[shuffleIndex.at(i)] =  st.at(i);
-    }
-    st= reverse;
-}
-
-
 
 void StateSpace::interpolate(const ompl::base::State *from, const ompl::base::State *to, double t,  // WITH SHUFFLE
                              ompl::base::State *state) const
@@ -128,15 +96,6 @@ void StateSpace::interpolate(const ompl::base::State *from, const ompl::base::St
     copyToReals(rstate_,rfrom);
     copyToReals(rfrom_,rfrom);
     copyToReals(rto_,rto);
-
-
-    std::vector<int> shuffleIndices = shuf(rfrom_.size());
-
-    shuffleState(rfrom_,shuffleIndices);
-    shuffleState(rto_,shuffleIndices);
-
-    std::vector<std::vector<int>> groupIndex = findGroupIndex();
-    std::vector<int> group_index = groupIndex.at(0);
 
 
     std::vector<double> distances = getDistances(rfrom_, rto_);
@@ -159,11 +118,6 @@ void StateSpace::interpolate(const ompl::base::State *from, const ompl::base::St
     for(size_t i = index+1; i < rfrom_.size(); i++){
         rstate_[i] = rfrom_[i];
     }
-
-
-    reverseShuffle(rstate_,shuffleIndices);
-    reverseShuffle(rfrom_,shuffleIndices);
-    reverseShuffle(rto_,shuffleIndices);
 
     copyFromReals(rstate,rstate_);
 
@@ -188,45 +142,3 @@ void StateSpace::interpolate(const ompl::base::State *from, const ompl::base::St
 
 
 
-/*
-void StateSpace::interpolate(const ompl::base::State *from, const ompl::base::State *to, double t,  // WITHOUT SHUFFLE
-                             ompl::base::State *state) const {
-    const auto &rfrom = from->as<StateSpace::StateType>();
-    const auto &rto = to->as<StateSpace::StateType>();
-    auto *rstate = state->as<StateSpace::StateType>();
-
-    std::vector<double> rfrom_,rstate_,rto_;
-    copyToReals(rstate_,rfrom);
-    copyToReals(rfrom_,rfrom);
-    copyToReals(rto_,rto);
-
-    std::vector<std::vector<int>> groupIndex = findGroupIndex();
-    std::vector<int> group_index = groupIndex.at(0);
-
-
-    std::vector<double> distances = getDistances(rfrom_, rto_);
-    int index = findIndex(distances,t);
-
-    double d_interpolated = 0.0;
-
-    for (int i = 0; i < index; i++){
-        rstate_[i] = rto_[i];
-        d_interpolated+= distances.at(i);
-    }
-
-    double s = (t-d_interpolated)/distances.at(index);
-
-//    std::cout << " d_interpolated : " << d_interpolated << " , t : " << t << ", s: " << s << ", index: "<< index
-//             << ", s/dist:" << s/distances.at(index) << ", rfrom+s/dist : " <<rfrom->values[index] + s*(rto->values[index]-rfrom->values[index]) <<   std::endl;
-
-    rstate_[index] = rfrom_[index] + s*(rto_[index]-rfrom_[index]);
-
-    for(size_t i = index+1; i < rfrom_.size(); i++){
-        rstate_[i] = rfrom_[i];
-    }
-
-    copyFromReals(rstate,rstate_);
-
-}
-
- */

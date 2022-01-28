@@ -19,7 +19,7 @@ namespace ompl
         class IsoManipulationOptimization : public OptimizationObjective
         {
         public:
-            IsoManipulationOptimization(const SpaceInformationPtr &si);
+            IsoManipulationOptimization(const SpaceInformationPtr &si, std::vector<int> group_indices);
 
             /** \brief Returns identity cost. */
             Cost stateCost(const State *s) const override;
@@ -39,7 +39,11 @@ namespace ompl
             bool isCostBetterThan(Cost c1, Cost c2) const override;
             Cost identityCost() const override;
 
+
            // Cost combineCosts(Cost c1, Cost c2) const override;
+        protected:
+
+           std::vector<int> group_indices_;
         };
     }
 }

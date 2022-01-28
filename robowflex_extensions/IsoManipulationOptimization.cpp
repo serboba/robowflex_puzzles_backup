@@ -7,8 +7,8 @@
 #include <robowflex_dart/space.h>
 
 
-ompl::base::IsoManipulationOptimization::IsoManipulationOptimization(const SpaceInformationPtr &si)
-        : ompl::base::OptimizationObjective(si)
+ompl::base::IsoManipulationOptimization::IsoManipulationOptimization(const SpaceInformationPtr &si, std::vector<int> group_indices)
+        : ompl::base::OptimizationObjective(si), group_indices_(group_indices)
 {
     description_ = "Iso Manipo";
 
@@ -22,7 +22,7 @@ std::vector<int> ompl::base::IsoManipulationOptimization::changedIndex(const std
     //
     std::vector<int> indices;
     for (size_t i= 0; i < s1.size() ; i++) {
-        if (s1.at(i) != s2.at(i)) {
+        if (abs(s1.at(i) - s2.at(i)) > 0.0001) {
             indices.push_back(i);
         }
     }
@@ -43,11 +43,13 @@ bool ompl::base::IsoManipulationOptimization::isCostBetterThan(Cost c1, Cost c2)
     else
         return false;
 }
+
 ompl::base::Cost ompl::base::IsoManipulationOptimization::motionCost(const State *s1, const State *s2) const
 {
 
     double cost = 0.0;
     int nd = si_->getStateSpace()->getValueLocations().size();
+
     const base::StateSpacePtr &space = si_->getStateSpace();
     if(s1 == NULL || s2 == NULL)
         return infiniteCost();
@@ -55,13 +57,23 @@ ompl::base::Cost ompl::base::IsoManipulationOptimization::motionCost(const State
     std::vector<double> s1_vals,s2_vals;
     space->copyToReals(s1_vals,s1);
     space->copyToReals(s2_vals,s2);
+    std::vector<int> diff;
+
     for (int i= 0; i < nd ; i++){
-        if(s1_vals.at(i) != s2_vals.at(i)){
+        if(abs(s1_vals.at(i) - s2_vals.at(i)) > 0.0001){
+            diff.push_back(i);
          cost++;
      }
-
     }
-   // std::cout << "cost returning : " << cost << std::endl;
+
+    bool flag = true;
+    for(auto index : group_indices_){
+        if(std::find(diff.begin(),diff.end(),index) == diff.end())
+            flag = false;
+    }
+
+    if(flag)
+        cost -=1.0;
 
     return Cost(cost);
 }
@@ -74,38 +86,15 @@ ompl::base::Cost ompl::base::IsoManipulationOptimization::combineCosts(Cost c1, 
 }
  */
 ompl::base::Cost ompl::base::IsoManipulationOptimization::motionCostHeuristic(const State *s1, const State *s2) const {
+    // if only group was changed
+
     return motionCost(s1,s2);
+}
+
+std::vector<int> ompl::base::IsoManipulationOptimization::getGroupIndices() {
+    return group_indices_;
 }
 
 
 
 
-/*
-ompl::base::Cost ompl::base::goalRegionCostToGo(const State *state, const Goal *goal) {
-
-    const auto *goalRegion = goal->as<ompl::base::GoalStates>();
-    double best_cost = 1.0;
-    double goal_cost = 2.0;
-    ompl::base::State *st_ = goal->getSpaceInformation()->allocState();
-    auto st = st_ ->as<ompl::base::RealVectorStateSpace::StateType>();
-
-    for(int i = 0; i < goalRegion->getStateCount(); i++){
-        auto gs = goalRegion->getState(i)->as<ompl::base::RealVectorStateSpace::StateType>();
-        double temp_cost = 0.0;
-        for(int j = 0; j< goal->getSpaceInformation()->getStateDimension(); j++ ){
-            if(gs->values[j] != st->values[j])
-                temp_cost += 1.0;
-        }
-        std::cout << "temp cost to go" << std::endl;
-        std::cout << temp_cost << std::endl;
-
-        if(temp_cost < goal_cost) {
-            goal_cost = temp_cost;
-        }
-    }
-    std::cout << "goal cost, best cost" << std::endl;
-    std::cout << goal_cost << "-" << best_cost << std::endl;
-
-    return Cost(std::max(goal_cost,best_cost));
-
-}*/
