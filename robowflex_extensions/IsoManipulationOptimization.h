@@ -19,7 +19,7 @@ namespace ompl
         class IsoManipulationOptimization : public OptimizationObjective
         {
         public:
-            IsoManipulationOptimization(const SpaceInformationPtr &si, std::vector<int> group_indices);
+            IsoManipulationOptimization(const SpaceInformationPtr &si, std::vector<std::vector<int>> group_indices);
 
             /** \brief Returns identity cost. */
             Cost stateCost(const State *s) const override;
@@ -34,19 +34,16 @@ namespace ompl
 
             //Cost goalRegionCostToGo(const State *state, const Goal *goal) ;
 
-            static  std::vector<int> changedIndex(const std::vector<double> s1, const std::vector<double> s2);
-
             bool isCostBetterThan(Cost c1, Cost c2) const override;
             Cost identityCost() const override;
 
-
+            std::vector<std::vector<int>> getGroupIndices();
            // Cost combineCosts(Cost c1, Cost c2) const override;
         protected:
 
-           std::vector<int> group_indices_;
+           std::vector<std::vector<int>> group_indices_;
         };
     }
 }
 
 #endif //ROBOWFLEX_DART_ISOMANIPULATIONOPTIMIZATION_H
-

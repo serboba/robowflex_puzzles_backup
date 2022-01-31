@@ -7,7 +7,7 @@
 #include <robowflex_dart/space.h>
 
 
-ompl::base::IsoManipulationOptimization::IsoManipulationOptimization(const SpaceInformationPtr &si, std::vector<int> group_indices)
+ompl::base::IsoManipulationOptimization::IsoManipulationOptimization(const SpaceInformationPtr &si, std::vector<std::vector<int>> group_indices)
         : ompl::base::OptimizationObjective(si), group_indices_(group_indices)
 {
     description_ = "Iso Manipo";
@@ -17,17 +17,17 @@ ompl::base::IsoManipulationOptimization::IsoManipulationOptimization(const Space
 
 }
 
-
-std::vector<int> ompl::base::IsoManipulationOptimization::changedIndex(const std::vector<double> s1, const std::vector<double> s2){
-    //
-    std::vector<int> indices;
+/*
+void ompl::base::IsoManipulationOptimization::changedIndex(const std::vector<double> s1,
+                                                                       const std::vector<double> s2,
+                                                                       std::vector<int> &indices){
     for (size_t i= 0; i < s1.size() ; i++) {
         if (abs(s1.at(i) - s2.at(i)) > 0.0001) {
             indices.push_back(i);
         }
     }
-    return indices;
 }
+ */
 ompl::base::Cost ompl::base::IsoManipulationOptimization::stateCost(const State *) const
 {
     return identityCost();
@@ -58,23 +58,32 @@ ompl::base::Cost ompl::base::IsoManipulationOptimization::motionCost(const State
     space->copyToReals(s1_vals,s1);
     space->copyToReals(s2_vals,s2);
     std::vector<int> diff;
-
+    diff.reserve(nd);
     for (int i= 0; i < nd ; i++){
         if(abs(s1_vals.at(i) - s2_vals.at(i)) > 0.0001){
             diff.push_back(i);
+
          cost++;
      }
     }
 
     bool flag = true;
-    for(auto index : group_indices_){
-        if(std::find(diff.begin(),diff.end(),index) == diff.end())
-            flag = false;
+    for(auto const group : group_indices_){
+        int size_counter = 0;
+        for(auto const index : group){
+            if(std::find(diff.begin(),diff.end(),index) != diff.end()){
+                size_counter++;
+            }
+            if (size_counter == group.size() && size_counter > 1)
+                cost -= 1.0;
+        }
     }
 
-    if(flag)
+/*
+    if(flag) {
         cost -=1.0;
-
+    }
+*/
     return Cost(cost);
 }
 /*
@@ -91,10 +100,11 @@ ompl::base::Cost ompl::base::IsoManipulationOptimization::motionCostHeuristic(co
     return motionCost(s1,s2);
 }
 
-std::vector<int> ompl::base::IsoManipulationOptimization::getGroupIndices() {
+
+
+std::vector<std::vector<int>> ompl::base::IsoManipulationOptimization::getGroupIndices() {
     return group_indices_;
 }
-
 
 
 
