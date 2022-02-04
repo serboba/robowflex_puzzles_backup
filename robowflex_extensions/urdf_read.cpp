@@ -11,7 +11,7 @@ void create_txt_file(std::string filename){
 
     char *argv[2];
     argv[0] = "urdf2config.py";
-    argv[1] = "maze_vertical";  // todo filename error fix
+    argv[1] = &filename[0];
 
     wchar_t ** wargv = new wchar_t *[2];
 
@@ -21,7 +21,7 @@ void create_txt_file(std::string filename){
     Py_SetProgramName(wargv[0]);
     Py_Initialize();
     PySys_SetArgv(2,wargv);
-    fp = fopen("urdf2config.py", "r+");
+    fp = fopen("urdf2config.py", "r");
     PyRun_SimpleFile(fp, "urdf2config.py");
     Py_Finalize();
     return;
@@ -49,14 +49,20 @@ URDF_IO::URDF_IO(std::string filename) {
             std::stringstream ss(line);
             if (line.compare("-") != 0) {
                 std::getline(ss, gr_name, ',');
-                gr_names.push_back(gr_name);
+                group_names.push_back(gr_name);
 
                 std::vector<int> gr_temp;
+                int dim;
                 std::getline(ss, num, ',');
-                gr_temp.push_back(std::stoi(num));
+                dim = std::stoi(num);
+                int start;
+                std::getline(ss, num, ',');
+                start = std::stoi(num);
 
-                std::getline(ss, num, ',');
-                gr_temp.push_back(stoi(num));
+                for(int i = start; i < start+dim; i++){
+                    gr_temp.push_back(i);
+                }
+
                 gr_indices.push_back(gr_temp);
 
             } else {
@@ -66,16 +72,17 @@ URDF_IO::URDF_IO(std::string filename) {
 
                 for(int i = 0; i< 3; i++){
                     std::getline(ss2, num, ' ');
-                    goal_p.push_back(stod(num));
+                    goal_pose.push_back(stod(num));
                 }
 
                 std::vector<double> orn = {1.0,0.0,0.0,0.0};
-                goal_p.insert(goal_p.end(),orn.begin(),orn.end());
+                goal_pose.insert(goal_pose.end(),orn.begin(),orn.end());
             }
         }
     }
 
-    std::vector<std::vector<int>> grouped_indices;
+    group_indices = gr_indices;
+    /*
     // gr indices to index groups
     for(auto group_ : gr_indices){
         if(group_.at(0) == 1)
@@ -85,12 +92,10 @@ URDF_IO::URDF_IO(std::string filename) {
             for (int j = group_.at(1); j < (group_.at(0)+group_.at(1)) ; j++) {
                 temp.push_back(j);
             }
-            grouped_indices.push_back(temp);
+            group_indices.push_back(temp);
         }
     }
-
-    group_names = gr_names;
-    group_indices = grouped_indices;
-    goal_pose = goal_p;
+     */
 
 }
+
