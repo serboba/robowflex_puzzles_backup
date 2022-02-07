@@ -167,6 +167,7 @@ std::vector<ompl::base::State *> PlanBuilder::buildIntermediateStates(ompl::base
                                                                       std::vector<std::pair<int,ompl::base::State * >> stack_) {
 
     std::vector<ompl::base::State *> merge_;
+    std::vector<ompl::base::State *> merge_empty;
 
     for(size_t i = 0 ; i < stack_.size(); i++)
     {
@@ -178,8 +179,8 @@ std::vector<ompl::base::State *> PlanBuilder::buildIntermediateStates(ompl::base
         std::cout << "---BUILD" << std::endl;
         //todo valid motion check
         if(!info->checkMotion(start,sub_state)){
-            OMPL_WARN("----------ERRRR NOT VALID MOTION");
-            break;
+            std::cout <<"----------ERRRR NOT VALID MOTION";
+            return merge_empty;
         }
         merge_.push_back(sub_state);
         start = sub_state;
@@ -211,6 +212,7 @@ std::vector<ompl::base::State *> PlanBuilder::buildIntermediateStates(ompl::base
 
     }else if(stack_.size()!= 0){
         merge_1 = buildIntermediateStates(from,stack_);
+        std::cout << "merge1 second case" << std::endl;
 
     }else{
         OMPL_WARN("-------------ERRRRRRR BOTH VECTORS SIZE ZERO");
@@ -220,13 +222,16 @@ std::vector<ompl::base::State *> PlanBuilder::buildIntermediateStates(ompl::base
     {
         if(merge_2.size()>0){
             merge_1.insert(merge_1.end(),merge_2.begin(),merge_2.end());
+            std::cout << "both not zero" <<std::endl;
             return merge_1;
         }
         else{
+            std::cout << "only merge1" <<std::endl;
             return merge_1;
         }
 
     }else{
+        std::cout << "onlymerge2" <<std::endl;
         return merge_2; // even if nothings inside jus return
     }
 
@@ -292,16 +297,16 @@ bool PlanBuilder::repairIsoPath(ompl::geometric::PathGeometric &mainPath){
             new_to = mainPath.getState(subsearch_id);
             new_from = mainPath.getState(subsearch_id-1);
             stack_states.push_back(std::make_pair(index_id,new_to));
-            space->printState(new_to);
             space->printState(new_from);
+            space->printState(new_to);
             std::cout << "---------------------" << std::endl;
             while(getChangedIndex(new_from,new_to) != prev_changed_index && subsearch_id < mainPath.getStateCount()-1){
                 subsearch_id++;
                 new_to = mainPath.getState(subsearch_id);
                 new_from = mainPath.getState(subsearch_id-1);
 
-                space->printState(new_to);
                 space->printState(new_from);
+                space->printState(new_to);
                 std::cout << "---------------------" << std::endl;
                 if(getChangedIndex(new_from,new_to)!=prev_changed_index) {
                     stack_states.push_back(std::make_pair(getChangedIndex(new_from,new_to),new_to));
@@ -317,8 +322,8 @@ bool PlanBuilder::repairIsoPath(ompl::geometric::PathGeometric &mainPath){
                 new_from = mainPath.getState(subsearch_id-1);
                 new_to = mainPath.getState(subsearch_id);
 
-                space->printState(new_to);
                 space->printState(new_from);
+                space->printState(new_to);
                 std::cout << "---------------------" << std::endl;
                 if(getChangedIndex(new_from,new_to)==prev_changed_index) {
 
@@ -355,6 +360,9 @@ bool PlanBuilder::repairIsoPath(ompl::geometric::PathGeometric &mainPath){
             }
 
             std::cout << "-----------NEW SUB PATH" << std::endl;
+            std::cout << "from id - toid" << fromID-toID << ", newpathstates size: " << newPathStates.size() << std::endl;
+            std::cout << "subsearch" << subsearch_id << ", newpathstates size: " << newPathStates.size() << std::endl;
+
             for(auto st : newPathStates){
                 space->printState(st);
                 newPathSegment.append(st);
