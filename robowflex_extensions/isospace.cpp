@@ -23,10 +23,7 @@ void StateSpace::StateSampler::sampleUniform(ompl::base::State *state)
         st->values[i] = rng_.uniformReal(joints_.at(i)->getLowerLimits()(0),
                                          joints_.at(i)->getUpperLimits()(0));
     }
-/*
-    std::cout <<"sample: " << std::endl;
-    space_->printState(state);
-*/
+
  }
 
 
@@ -35,18 +32,17 @@ double StateSpace::distance(double v1, double v2) const{
 
    //double d =  sqrt((v1-v2)*(v1-v2)); // EUCLIDEAN
     double d =  abs(v1-v2);             // MANHATTAN
-    return (d<1e-8) ? 0.0 : d;
+    return d;
 }
 
 
 int StateSpace::findIndex(std::vector<double> &distances, double t) const{
     double sum = 0.0;
-    for(size_t i = 0; i < grouped_indices.size() ; i++){
+    for(size_t i = 0; i < grouped_indices.size() ; i++){ // door cube cube door
         sum += distances.at(i);
         if(sum >= t ){
             return i;
         }
-        // temp_sum += distances.at(i);
     }
     return (grouped_indices.size()-1);
 }
@@ -67,7 +63,7 @@ std::vector<double> StateSpace::getDistances(const StateSpace::StateType *const 
     }
 
    for(size_t j = 0; j<distances_.size(); j++){
-       if(distances_[j] > 1e-8)
+       if(distances_[j] > 1e-10)
            distances_[j] /= total_dist;
        else
            distances_[j] = 0.0;

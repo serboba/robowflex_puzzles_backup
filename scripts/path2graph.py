@@ -1,63 +1,79 @@
+import sys
+
 import numpy as np
 import matplotlib.pyplot as plt
 
-def read_solution():
-    cube1_1 = []
-    cube1_2 = []
-    cube2_1 = []
-    cube2_2 = []
-    door = []
-    door_lock = []
-    with open("/home/serboba/rb_ws/devel/lib/robowflex_dart/xml_files/solution_path.txt") as f:
+np.set_printoptions(suppress=True, threshold=sys.maxsize)
+
+def get_diff_index(state):
+    diff=[]
+    i = 0
+    while(i < state.shape[0]-1):
+        start = i
+        if np.isclose(state[i], state[i + 1]):
+            i+=1
+            continue
+
+        while i < state.shape[0]-1 and not np.isclose(state[i],state[i+1]):
+            i+=1
+        end = i
+        res = [start,end]
+        diff.append(res)
+    return diff
+
+def plot_solutionFINAL(filepath):
+    with open(filepath) as f:
         lines = f.readlines()
-        cube1_1 = [float(line.split()[0]) for line in lines]
-        cube1_2 = [float(line.split()[1]) for line in lines]
-        cube2_1 = [float(line.split()[2]) for line in lines]
-        cube2_2 = [float(line.split()[3] )for line in lines]
-        door = [float(line.split()[4]) for line in lines]
-        door_lock = [float(line.split()[5]) for line in lines]
+        joints_ = []
+        for line in lines:
+            joint_input = []
+            line = line.split()
+            if line == []:
+                continue
+            for i in range(0, len(line)):
+                joint_input.append(float(line[i]))
+            joints_.append(joint_input)
+    joints_ = np.asarray(joints_)
+    #res_path = seperateStates(joints_) already in C
+    res_path = joints_
+    x = np.arange(0, res_path.shape[0])
+    joints = []
 
-    x = np.arange(0,len(door))
-    fig, ax = plt.subplots(3)
+    for i in range(res_path.shape[1]):
+        joints.append(res_path[:, i])
+    intervals = []
+    for joint in joints:
+        intervals.append(get_diff_index(joint))
 
-    ax[0].plot(x,door,label='door')
-    ax[0].plot(x,door_lock,label='door_lock')
-    ax[0].legend()
-    ax[1].plot(x,cube1_1,label='cube_1')
-    ax[1].plot(x,cube1_2,label='cube_1_1')
-    ax[1].legend()
-    ax[2].plot(x,cube2_1,label='cube_2')
-    ax[2].plot(x,cube2_2,label='cube_2_1')
-    ax[2].legend()
-    print(door_lock)
+    colors = ['green', 'green','blue', 'red', 'orange']
+    labels = ['cube', 'cube','door1', 'door2', 'door3']
+
+    #colors = ['green', 'green','blue', 'orange', 'orange']
+    #labels = ['cube', 'cube','door1', 'obs', 'obs']
+
+    #colors = ['blue', 'red', 'orange','green', 'green']
+    #labels = [ 'door1', 'door2', 'door3','cube', 'cube']
+
+    fig, ax = plt.subplots()
+    for i in range(0, len(joints)):
+        ax.plot(x, joints[i], label=labels[i], color=colors[i])
+
+    for i in range(0, len(intervals)):
+        for intv in intervals[i]:
+            if i == 1:
+                print(intv)
+            ax.axvspan(intv[0], intv[1], facecolor=colors[i], alpha=0.3)
+    plt.legend()
     plt.show()
-
-def read_solution2():
-    with open("/home/serboba/rb_ws/devel/lib/robowflex_dart/solution_path_table.txt") as f:
-        lines = f.readlines()
-        door1 = [float(line.split()[2]) for line in lines]
-        door2 = [float(line.split()[3]) for line in lines]
-        door3 = [float(line.split()[4]) for line in lines]
-        cube1 = [float(line.split()[0]) for line in lines]
-        cube1_x = [float(line.split()[1]) for line in lines]
-
-        x = np.arange(0, len(door1))
-        fig, ax = plt.subplots(2)
-        print(door1)
-
-        ax[0].plot(x, door1, label='door1')
-        ax[0].plot(x, door2, label='door2')
-        ax[0].plot(x, door3, label='door3')
-        ax[0].legend()
-
-        ax[1].plot(x, cube1, label='cube_1')
-        ax[1].plot(x, cube1_x, label='cube_1_1')
-        ax[1].legend()
-        plt.show()
 
 
 def main():
-    read_solution2()
+    plot_solutionFINAL("/home/serboba/rb_ws/devel/lib/robowflex_dart/mazeBEFORE.txt")
+    plot_solutionFINAL("/home/serboba/rb_ws/devel/lib/robowflex_dart/maze3doors.txt")
+   # plot_solutionFINAL("/home/serboba/rb_ws/devel/lib/robowflex_dart/mazeAFTER.txt")
+   # plot_solutionFINAL("/home/serboba/rb_ws/devel/lib/robowflex_dart/maze_sol_pathiso.txt")
+ #   plot_solutionFINAL("/home/serboba/rb_ws/devel/lib/robowflex_dart/REPAIR.txt")
 
+    #plot_solutionFINAL("/home/serboba/rb_ws/devel/lib/robowflex_dart/mazesolution.txt")
 if __name__ == "__main__":
     main()

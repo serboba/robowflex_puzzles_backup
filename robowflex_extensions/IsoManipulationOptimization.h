@@ -26,20 +26,10 @@ namespace ompl
 
             Cost stateCost(const State *s) const override;
 
-        //    Cost identityCost() const override;
 
             Cost motionCost(const State *s1, const State *s2) const override;
 
             Cost motionCostHeuristic(const State *s1, const State *s2) const override;
-
-
-            //Cost goalRegionCostToGo(const State *state, const Goal *goal) ;
-
-        //    bool isCostBetterThan(const base::Cost &c1,const base::Cost &c2) const override;
-
-        //    Cost infiniteCost() const override;
-        //    bool isCostEquivalentTo(const base::Cost &c1_, const base::Cost &c2_) const override;
-     //       Cost combineCosts(const base::Cost &c1,const base::Cost &c2) const override;
 
         protected:
 
