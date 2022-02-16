@@ -8,7 +8,6 @@
 void create_txt_file(std::string filename){
     Py_Initialize();
     FILE *fp;
-
     char *argv[2];
     argv[0] = "urdf2config.py";
     argv[1] = &filename[0];

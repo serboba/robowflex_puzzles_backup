@@ -20,8 +20,58 @@ ompl::base::Cost ompl::base::IsoManipulationOptimization::stateCost(const State 
     return identityCost();
 }
 
+ompl::base::Cost ompl::base::IsoManipulationOptimization::identityCost() const
+{
+    return Cost(0.0,0.0);
+}
 
-ompl::base::Cost ompl::base::IsoManipulationOptimization::motionCost(const State *s1, const State *s2) const {
+ompl::base::Cost ompl::base::IsoManipulationOptimization::infiniteCost() const
+{
+    return Cost(std::numeric_limits<double>::infinity(),std::numeric_limits<double>::infinity());
+}
+
+bool ompl::base::IsoManipulationOptimization::isCostBetterThan(const Cost &c1, const Cost &c2) const
+{
+/*
+    if(c1.value() == c2.value())// action cost equal
+        return c1.distval() < c2.distval();
+    else
+        return c1.value() < c2.value();
+*/
+
+    if(c1.value() < c2.value()){
+        return c1.distval() < c2.distval();
+    }
+    return false;
+
+/*
+    if(c1.value() == 1 && c2.value() == 1){
+        return c1.distval() < c2.distval();
+    }
+
+    else if(c1.value() < c2.value()){
+        return c1.distval() < c2.distval();
+    }
+        return false;
+*/
+}
+
+bool ompl::base::IsoManipulationOptimization::isCostEquivalentTo(const Cost &c1, const Cost &c2) const
+{
+    if (c1.value() == c2.value())
+        if (abs(c1.distval() -c2.distval())< 1e-10)
+            return true;
+    return false;
+}
+
+ompl::base::Cost ompl::base::IsoManipulationOptimization::combineCosts(const Cost &c1, const Cost &c2) const
+{
+    return Cost(c1.value()+c2.value(),c1.distval()+c2.distval());
+
+}
+
+ompl::base::Cost ompl::base::IsoManipulationOptimization::motionCost(const State *s1, const State *s2) const
+{
 
     if(s1 == NULL || s2 == NULL) {
         return infiniteCost();
@@ -41,7 +91,7 @@ ompl::base::Cost ompl::base::IsoManipulationOptimization::motionCost(const State
         }
     }
 
-    return Cost(double(action_cost));
+    return Cost(double(action_cost),si_->distance(s1,s2));
 }
 
 

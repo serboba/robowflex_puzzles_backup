@@ -27,8 +27,9 @@ def parse_srdf_file(root):
     return groups
 
 def translate_into_txt(filename):
-    srdf_name = filename +'.srdf'
-    urdf_name = filename +'.urdf'
+    filename1 = 'envs/'+filename
+    srdf_name = filename1 +'.srdf'
+    urdf_name = filename1 +'.urdf'
     txt_file = []
 
     res = parse_srdf_file(ET.parse(srdf_name).getroot())
@@ -41,6 +42,7 @@ def translate_into_txt(filename):
     write_into_txt(txt_file,txt_name)
 
 def write_into_txt(file,name):
+    os.getcwd()
     direc = "txt_files/"
     name_ = os.path.join(direc,name)
     with open(name_, 'w') as f:
@@ -51,3 +53,4 @@ def write_into_txt(file,name):
 if len(sys.argv) == 1:
     sys.exit("NOT ENOUGH ARGS")
 translate_into_txt(str(sys.argv[1]))
+

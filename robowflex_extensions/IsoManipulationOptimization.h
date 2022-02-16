@@ -31,7 +31,17 @@ namespace ompl
 
             Cost motionCostHeuristic(const State *s1, const State *s2) const override;
 
+            bool isCostEquivalentTo(const Cost &c1, const Cost &c2) const override;
+            bool isCostBetterThan(const Cost &c1, const Cost &c2) const override;
+
+            Cost infiniteCost() const override;
+
+            Cost combineCosts(const Cost &c1, const Cost &c2) const override;
+
+            Cost identityCost() const override;
+
         protected:
+
 
             std::vector<std::vector<int>> group_indices_;
         };

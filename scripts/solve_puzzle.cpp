@@ -67,9 +67,9 @@ int main(int argc, char **argv)
     ROS ros(argc, argv);
 
 
-    auto maze_dart = darts::loadMoveItRobot("maze_0",
-                                            "/home/serboba/rb_ws/devel/lib/robowflex_dart/maze_0.urdf",
-                                            "/home/serboba/rb_ws/devel/lib/robowflex_dart/maze_0.srdf");
+    auto maze_dart = darts::loadMoveItRobot("maze1",
+                                            "/home/serboba/rb_ws/devel/lib/robowflex_dart/envs/maze1.urdf",
+                                            "/home/serboba/rb_ws/devel/lib/robowflex_dart/envs/maze1.srdf");
 
 
     auto maze_name = maze_dart->getName();
@@ -85,7 +85,7 @@ int main(int argc, char **argv)
         darts::PlanBuilder builder(world);
 
 
-        URDF_IO input_("maze_0");
+        URDF_IO input_("maze1");
 
         for(std::string group : input_.group_names)
             builder.addGroup(maze_name,group);
@@ -109,11 +109,12 @@ int main(int argc, char **argv)
 
         builder.ss->setOptimizationObjective(std::make_shared<ompl::base::IsoManipulationOptimization>(builder.info,input_.group_indices));
         // auto planner = std::make_shared<ompl::geometric::RRTnew>(builder.info,input_.group_indices,false,false);
-        auto planner = std::make_shared<ompl::geometric::RRTnew>(builder.info,input_.group_indices, false,false);
+        auto planner = std::make_shared<ompl::geometric::RRTnew>(builder.info,input_.group_indices, false,true);
+       // auto planner = std::make_shared<ompl::geometric::BITstar>(builder.info);
 
         planner->setRange(0.1);
         builder.space->setLongestValidSegmentFraction(0.01);
-        
+
         builder.ss->setPlanner(planner);
         builder.setup();
 
@@ -122,7 +123,7 @@ int main(int argc, char **argv)
         builder.rspace->sanityChecks();
 
         goal->startSampling();
-        ompl::base::PlannerStatus solved = builder.ss->solve(30);
+        ompl::base::PlannerStatus solved = builder.ss->solve(180);
         goal->stopSampling();
 
 
@@ -130,15 +131,15 @@ int main(int argc, char **argv)
         if (solved)
         {
             ompl::geometric::PathGeometric path(builder.getSolutionPath(false,false));
-    
+
             //path.interpolate() if not rrtnew
-    
+
             std::cout << "path" << std::endl;
             std::cout << path.getStateCount() << std::endl;
             std::ofstream fs("maze3doors.txt");
             path.printAsMatrix(fs);
 
-           window.animatePath(builder, path,1,10);
+           window.animatePath(builder, path,2,10);
 
 
        }
@@ -149,8 +150,8 @@ int main(int argc, char **argv)
 
     window.run([&] {
 
+     //   std::this_thread::sleep_for(std::chrono::milliseconds(200000));
         plan_solution_all();
-        std::this_thread::sleep_for(std::chrono::milliseconds(2));
 
     });
 
