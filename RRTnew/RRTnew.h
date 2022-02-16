@@ -86,9 +86,15 @@ namespace ompl
                 setup();
             }
 
+
             unsigned int numIterations() const
             {
                 return iterations_;
+            }
+
+            ompl::base::Cost bestCost() const
+            {
+                return bestCost_;
             }
 
             void setup() override;
@@ -110,7 +116,22 @@ namespace ompl
                 base::State *state{nullptr};
                 Motion *parent{nullptr};
                 base::Cost cost;
+                base::Cost incCost;
                 int index_changed;
+
+                struct CostCompare
+                {
+                    CostCompare(const base::OptimizationObjective &opt):  opt_(opt)
+                    {
+                    }
+                    bool operator()(base::Cost c1_, base::Cost c2_)
+                    {
+                        return opt_.isCostBetterThan(c1_,c2_);
+                    }
+                    const base::OptimizationObjective &opt_;
+                };
+
+
             };
 
             /** \brief A nearest-neighbor datastructure representing a tree of motions */
@@ -191,8 +212,7 @@ namespace ompl
             base::OptimizationObjectivePtr opt_;
 
 
-            base::Cost bestCost{1};
-            base::Cost incCost{0};
+            base::Cost bestCost_{std::numeric_limits<double>::quiet_NaN()};
 
             int prevIndex{0};
 
@@ -203,19 +223,22 @@ namespace ompl
 
 
             unsigned int iterations_{0u};
-            std::string bestCostProgressProperty() const;
+
+
+            std::shared_ptr<NearestNeighbors<Motion *>> nn_;
+
 
             int getChangedIndex(const base::State *from, const base::State *to);
 
             std::vector<base::State *> getStates(std::vector<Motion *>);
 
-            //  std::vector<base::State *> rewire(std::vector<base::State *> mainStates);
+          //  std::vector<base::State *> rewire(std::vector<base::State *> mainStates);
 
 
 
             std::vector<ompl::base::State * > reConnect(ompl::base::State *from,
-                                                        std::vector<std::pair<ompl::base::State *,int >> prio_,
-                                                        std::vector<std::pair<ompl::base::State *,int >> stack_);
+                                                                                 std::vector<std::pair<ompl::base::State *,int >> prio_,
+                                                                                 std::vector<std::pair<ompl::base::State *,int >> stack_);
 
             std::vector<base::State *>
             buildIntermediateStates(base::State *start, std::vector<std::pair<int, ompl::base::State *>> stack_);
@@ -249,9 +272,33 @@ namespace ompl
 
             int getCostPath(std::vector<base::State *> states_);
 
-            Motion *rewireMotion(Motion *startMotion);
+            Motion *rewireMotion(Motion *startMotion, bool start_);
 
             int getCostPath(Motion *mot_);
+
+            void simplifyPath(std::vector<ompl::base::State *> &mainStates);
+            std::string numIterationsProperty() const
+            {
+                return std::to_string(numIterations());
+            }
+            std::string bestCostProperty() const
+            {
+                return std::to_string(bestCost().value());
+            }
+
+
+            ompl::geometric::RRTnew::Motion *
+            chooseParent(std::vector<Motion *> vector1, Motion *pMotion, Motion *pMotion1, bool tree_inf);
+
+            void rewireNew(std::vector<Motion *> Z_near, ompl::geometric::RRTnew::Motion *z_min,
+                           ompl::geometric::RRTnew::Motion *z_new, bool tree_inf);
+            void reConnectMotion(Motion * connectA, Motion * connectB);
+
+            void printMotion(Motion *motion);
+
+            void printMotionCosts(Motion * z_near, Motion * z_min,Motion * z_new);
+
+            base::Cost getIncCost(Motion *m1, Motion *m2);
         };
     }
 }
