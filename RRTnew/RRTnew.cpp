@@ -314,7 +314,6 @@ void ompl::geometric::RRTnew::constructSolutionPath(Motion * startMotion, Motion
                 break;
             }
         }
-
         bestCost = maxCost;
         OMPL_DEBUG("SOLVED, FURTHER REWIRING. FINAL cost : %d", getCostPath(path->getStates()));
         pdef_->addSolutionPath(path, false, 0.0, getName());
@@ -466,12 +465,12 @@ std::vector<ompl::base::State * > ompl::geometric::RRTnew::reConnect(ompl::base:
 }
 
 int ompl::geometric::RRTnew::rewire(std::vector<ompl::base::State *> &mainPath) {
-/*
+
     std::cout<< "INSIDE REWIRE PRINTING STATES ONLY FIRST ---------" << std::endl;
     for(auto &i : mainPath)
         si_->printState(i);
     std::cout<<"------------------END STATES" << std::endl;
-*/
+
     int rewireCount = 0;
     int prev_index = getChangedIndex(mainPath.at(0),mainPath.at(1));
     for(size_t toID = 1; toID < mainPath.size()-1; ++toID){
@@ -480,12 +479,12 @@ int ompl::geometric::RRTnew::rewire(std::vector<ompl::base::State *> &mainPath) 
         ompl::base::State *fromState = mainPath.at(fromID);
         ompl::base::State  *toState = mainPath.at(toID);
 
-        /*  std::cout <<"fromstate, tostate, toID :" << fromID << ", "<< toID << std::endl;
+          std::cout <<"fromstate, tostate, toID :" << fromID << ", "<< toID << std::endl;
           si_->printState(fromState);
           si_->printState(toState);
 
           std::cout << "indices different: " << getChangedIndex(fromState,toState) << " ? " << prev_index << std::endl;
-      */
+
         if(getChangedIndex(fromState,toState) != prev_index){
             //prev_index = toID; // TODO ??
 
@@ -493,12 +492,12 @@ int ompl::geometric::RRTnew::rewire(std::vector<ompl::base::State *> &mainPath) 
             int subsearch_id = toID;
             ompl::base::State *subFrom = mainPath.at(subsearch_id-1);
             ompl::base::State  *subTo = mainPath.at(subsearch_id);
-            /*
+
                   std::cout << "indices different: " << getChangedIndex(fromState,toState) << " != " << prev_index << std::endl;
                   std::cout <<"subfrom , subto :" << std::endl;
                   si_->printState(subFrom);
                   si_->printState(subTo);
-      */
+
             std::vector<std::pair<ompl::base::State *,int>> mergeIndices;
             std::vector<std::pair<ompl::base::State *,int>> queueIndices;
             queueIndices.push_back(std::make_pair(subTo,getChangedIndex(subFrom,subTo)));
@@ -509,32 +508,35 @@ int ompl::geometric::RRTnew::rewire(std::vector<ompl::base::State *> &mainPath) 
                 subFrom = mainPath.at(subsearch_id-1);
                 subTo = mainPath.at(subsearch_id);
 
-                /*     si_->printState(subFrom);
+                     si_->printState(subFrom);
                      si_->printState(subTo);
                      std::cout<< "subsearchid: " << subsearch_id << ",index changed : " << getChangedIndex(subFrom,subTo)  << " prev : " << prev_index<< std::endl;
-                 */
+
                 if(getChangedIndex(subFrom,subTo) != prev_index){
                     queueIndices.push_back(std::make_pair(subTo,getChangedIndex(subFrom,subTo)));
                 }else{
-                    /*       //start same index again done
+                           //start same index again done
+                           if(subsearch_id >= mainPath.size()-1)
+                           {
+                               OMPL_DEBUG("LAST STATE");
+                               mergeIndices.push_back(std::make_pair(subTo,getChangedIndex(subFrom,subTo)));
+                           }
                            std::cout << "------------------------" << std::endl;
                            std::cout << "breaking" << std::endl;
-                      */
-                    //mergeIndices.push_back(std::make_pair(subTo,getChangedIndex(subFrom,subTo)));
                     break;
                 }
             }
 
-            // std::cout << "------------------------" << std::endl;
+             std::cout << "------------------------" << std::endl;
             while(getChangedIndex(subTo,subFrom) == prev_index && subsearch_id < mainPath.size()-1)
             {
                 subFrom = mainPath.at(subsearch_id-1);
                 subTo = mainPath.at(subsearch_id);
-/*
+
                 si_->printState(subFrom);
                 si_->printState(subTo);
                 std::cout <<"subsearchid: " << subsearch_id << ", index changed : " << getChangedIndex(subFrom,subTo)  << " prev : " << prev_index<< std::endl;
-*/
+
                 if(getChangedIndex(subFrom,subTo) == prev_index)
                     mergeIndices.push_back(std::make_pair(subTo,getChangedIndex(subFrom,subTo)));
                 else
@@ -542,8 +544,7 @@ int ompl::geometric::RRTnew::rewire(std::vector<ompl::base::State *> &mainPath) 
                 subsearch_id++;
             }
 
-            //  toID = subsearch_id-1;
-            //     std::cout << "size : "<<mergeIndices.size() << "-" << queueIndices.size() << std::endl;
+            std::cout << "size : "<<mergeIndices.size() << "-" << queueIndices.size() << std::endl;
             if(subsearch_id >= mainPath.size())
                 OMPL_ERROR("SUB SEARCH ID OVER SIZE ERR");
 
@@ -557,7 +558,7 @@ int ompl::geometric::RRTnew::rewire(std::vector<ompl::base::State *> &mainPath) 
                     return rewireCount;
                 prev_index = getChangedIndex(mainPath.at(toID),mainPath.at(toID+1));
 
-                /*       std::cout << "old state was : "<< std::endl;
+                       std::cout << "old state was : "<< std::endl;
                        si_->printState(mainPath.at(fromID));
                        si_->printState(mainPath.at(fromID+1));
                        std::cout << "new state is : "<< std::endl;
@@ -566,10 +567,12 @@ int ompl::geometric::RRTnew::rewire(std::vector<ompl::base::State *> &mainPath) 
                        std::cout << "fromID - toID : "<< fromID << ", new: " << toID <<"-" << (toID+1) << std::endl;
 
                        std::cout << "new prev index "<< prev_index << std::endl;
-                   */
+
             }
 
             if(rewiredConnection.empty()){
+                std::cout << "rew connection empty continue !!! set prev index" << std::endl;
+                prev_index = getChangedIndex(mainPath.at(fromID),mainPath.at(toID));
                 continue;
             }
             // toID original bis
@@ -607,7 +610,7 @@ int ompl::geometric::RRTnew::rewire(std::vector<ompl::base::State *> &mainPath) 
 int ompl::geometric::RRTnew::getCostPath(std::vector<ompl::base::State * > states_)
 {
     int prev_index = getChangedIndex(states_.at(0),states_.at(1));
-    int cost = 0;
+    int cost = 1;
     for (int i = 1; i < states_.size()-1 ; ++i) {
         //  si_->printState(states_.at(i));
         //  si_->printState(states_.at(i+1));
@@ -731,7 +734,7 @@ ompl::geometric::RRTnew::GrowState ompl::geometric::RRTnew::growTree(TreeData &t
     auto newCost = opt_->motionCost(nmotion->state,dstate);
     //  std::cout <<"newcost : " << newCost.value() << std::endl;
     if(newCost.value()  > 1.0){ // bestcost = 1.0, wenn mehr als 1 index verändert wurde -> TRAPPED
-        if(true && newCost.value() == 2.0) // erlaube cost 2 sonst alg ist stuck auch wenn cube 1 ist
+        if(useIsolation_ && newCost.value() == 2.0) // erlaube cost 2 sonst alg ist stuck auch wenn cube 1 ist
         {
             auto dstates = isolateStates(nmotion->state, dstate);
             std::vector<Motion *> stack_motion;
