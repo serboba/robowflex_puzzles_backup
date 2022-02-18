@@ -241,8 +241,11 @@ ompl::geometric::RRTnew::Motion * ompl::geometric::RRTnew::createNewMotion(const
     motion->parent = premotion;
     motion->root = premotion->root;
     motion->cost = opt_->motionCost(premotion->state,st);
-    motion->index_changed = getChangedIndex(premotion->state,st);
-
+   // motion->index_changed = getChangedIndex(premotion->state,st);
+    if(!getChangedIndexGroups(premotion->state,st).empty())
+        motion->index_changed = getChangedIndexGroups(premotion->state,st).back();
+    else
+        motion->index_changed = getChangedIndex(premotion->state,st);
     if(motion->index_changed == premotion->index_changed){
         motion->incCost = opt_->combineCosts(premotion->incCost, base::Cost(0.0,motion->cost.distval()));
     }else{
@@ -320,8 +323,10 @@ void ompl::geometric::RRTnew::constructSolutionPath(Motion * startMotion, Motion
     for (auto &i : mpath2){
         path->append(i->state);
     }
+    bestCost_ = base::Cost(getCostPath(path->getStates()));
+    pdef_->addSolutionPath(path, false, 0.0, getName());
 
-
+/*
     if(!save){
         base::Cost maxCost(getCostPath(path->getStates()));
         bestCost_ = maxCost;
@@ -362,7 +367,9 @@ void ompl::geometric::RRTnew::constructSolutionPath(Motion * startMotion, Motion
         std::ofstream fs1("mazeBEFORE.txt");
         path->printAsMatrix(fs1);
     }
-}
+*/
+
+ }
 
 
 void ompl::geometric::RRTnew::getIntermediateState(const ompl::base::State *from,const ompl::base::State * to, ompl::base::State *state, int index_group)
@@ -396,6 +403,29 @@ int ompl::geometric::RRTnew::getChangedIndex(const ompl::base::State *from,const
                 return i;
         }
     }
+}
+
+std::vector<int> ompl::geometric::RRTnew::getChangedIndexGroups(const ompl::base::State *from,const ompl::base::State * to){
+
+    // setze voraus dass cost 1 zw. from und to, keine equal states
+
+    std::vector<double> s_from,s_to;
+    si_->getStateSpace()->copyToReals(s_from,from);
+    si_->getStateSpace()->copyToReals(s_to,to);
+
+
+    std::vector<int> changed_groups_;
+    for(size_t i = 0; i < group_indices.size() ; i++)
+    {
+        for(auto const &index_in_gr : group_indices.at(i))
+        {
+            if(abs(s_from.at(index_in_gr) - s_to.at(index_in_gr)) > 1e-10){
+                changed_groups_.push_back(i);
+                break;
+            }
+        }
+    }
+    return changed_groups_;
 }
 
 
@@ -659,36 +689,7 @@ int ompl::geometric::RRTnew::getCostPath(std::vector<ompl::base::State * > state
     return cost;
 }
 
-void ompl::geometric::RRTnew::simplifyPath(std::vector<ompl::base::State * > &mainStates)
-{
-    int prev_index = getChangedIndex(mainStates.at(0),mainStates.at(1));
-    std::vector<ompl::base::State * > newPath;
-    int i = 1;
-    while(i < mainStates.size()-1)
-    {
-        int start = i;
-        if(prev_index != getChangedIndex(mainStates.at(i),mainStates.at(i+1))){
-            prev_index = getChangedIndex(mainStates.at(i),mainStates.at(i+1));
-            i++;
-            while(i < mainStates.size()-1 && prev_index == getChangedIndex(mainStates.at(i),mainStates.at(i+1)))
-            {
-                i++;
-            }
 
-            int end = i;
-            newPath.push_back(mainStates.at(start));
-            newPath.push_back(mainStates.at(end));
-        }else{
-            i++;
-        }
-
-    }
-    std::cout << "start" << std::endl;
-    for(auto j : newPath)
-        si_->printState(j);
-
-    std::cout << "end" << std::endl;
-}
 
 int ompl::geometric::RRTnew::getCostPath(ompl::geometric::RRTnew::Motion * mot_)
 {
@@ -762,6 +763,20 @@ ompl::geometric::RRTnew::Motion * ompl::geometric::RRTnew::rewireMotion(Motion *
 
 }
 
+ompl::base::Cost ompl::geometric::RRTnew::getIncCost(Motion * m1, Motion *m2)
+{
+    base::Cost c_;
+    //if(m1->index_changed == getChangedIndex(m1->state,m2->state)){
+    if(m1->index_changed == getChangedIndexGroups(m1->state,m2->state).back()){
+        c_ = opt_->combineCosts(m1->incCost, base::Cost(0.0,si_->distance(m1->state,m2->state)));
+    }
+    else{
+        c_ = opt_->combineCosts(m1->incCost,opt_->motionCost(m1->state,m2->state));
+    }
+    return c_;
+
+}
+
 void ompl::geometric::RRTnew::printMotionCosts(Motion * z_near, Motion * z_min,Motion * z_new)
 {
     std::cout << "Current z_min:-->";
@@ -787,24 +802,13 @@ void ompl::geometric::RRTnew::printMotionCosts(Motion * z_near, Motion * z_min,M
     std::cout<<"--End printMotions"<<std::endl;
 }
 
-ompl::base::Cost ompl::geometric::RRTnew::getIncCost(Motion * m1, Motion *m2)
-{
-    base::Cost c_;
-    if(m1->index_changed == getChangedIndex(m1->state,m2->state)){
-        c_ = opt_->combineCosts(m1->incCost, base::Cost(0.0,si_->distance(m1->state,m2->state)));
-    }
-    else{
-        c_ = opt_->combineCosts(m1->incCost,opt_->motionCost(m1->state,m2->state));
-    }
-    return c_;
 
-}
 
 ompl::geometric::RRTnew::Motion *
 ompl::geometric::RRTnew::chooseParent(std::vector<Motion *> Z_near, ompl::geometric::RRTnew::Motion *z_nearest,
                                       ompl::geometric::RRTnew::Motion *z_new, bool tree_inf)
 {
-    std::cout<<"---Choosing parent:" << std::endl;
+  //  std::cout<<"---Choosing parent:" << std::endl;
 
 
     auto z_min = z_nearest;
@@ -819,11 +823,11 @@ ompl::geometric::RRTnew::chooseParent(std::vector<Motion *> Z_near, ompl::geomet
 
             base::Cost inc_cost_z_near_to_z_new = getIncCost(z_near,z_new);
 
-            printMotionCosts(z_near,z_min,z_new);
+//            printMotionCosts(z_near,z_min,z_new);
 
             if(opt_->isCostBetterThan(motion_cost_z_near_to_z_new,motion_cost_z_min_to_z_new) && opt_->isCostBetterThan(inc_cost_z_near_to_z_new,c_min)) // motioncost und inccost zu near
             {
-                std::cout << "Yes its better." << std::endl;
+                //std::cout << "Yes its better." << std::endl;
                 z_min = z_near;
                 c_min = inc_cost_z_near_to_z_new;
             }
@@ -839,7 +843,8 @@ void ompl::geometric::RRTnew::reConnectMotion(Motion * connectA, Motion * connec
     OMPL_DEBUG("INSIDE RECONNECT");
     connectA->parent = connectB;
     connectA->cost = opt_->motionCost(connectB->state,connectA->state);
-    connectA->index_changed = getChangedIndex(connectB->state,connectA->state);
+    //connectA->index_changed = getChangedIndex(connectB->state,connectA->state);
+    connectA->index_changed = getChangedIndexGroups(connectB->state,connectA->state).back();
 
     if(connectB->index_changed == connectA->index_changed)
     {
@@ -865,7 +870,8 @@ void ompl::geometric::RRTnew::rewireNew(std::vector<Motion *> Z_near, ompl::geom
                 base::Cost motion_cost_z_new_to_z_near = opt_->motionCost(z_new->state,z_near->state);
                 base::Cost inc_cost_z_new_to_z_near;
 
-                if(z_new->index_changed == getChangedIndex(z_new->state,z_near->state))
+              //  if(z_new->index_changed == getChangedIndex(z_new->state,z_near->state))
+                if(z_new->index_changed == getChangedIndexGroups(z_new->state,z_near->state).back())
                 {
                     inc_cost_z_new_to_z_near = opt_->combineCosts(z_new->incCost, base::Cost(0.0,motion_cost_z_new_to_z_near.distval()));
                 }else
@@ -877,14 +883,14 @@ void ompl::geometric::RRTnew::rewireNew(std::vector<Motion *> Z_near, ompl::geom
                    opt_->isCostBetterThan(inc_cost_z_new_to_z_near,z_near->incCost))
                 {
                     //todo check if reconnection correct but cant reach here rn anyway
-
+                    //printMotionCosts(z_near,z_min,z_new);
                     reConnectMotion(z_near,z_new);
                     rewired_counter++;
                 }
             }
         }
     }
-    OMPL_DEBUG("REWIRED %d NODES", rewired_counter);
+    //OMPL_DEBUG("REWIRED %d NODES", rewired_counter);
 }
 
 ompl::geometric::RRTnew::GrowState ompl::geometric::RRTnew::growTree(TreeData &tree, TreeGrowingInfo &tgi,
@@ -914,58 +920,58 @@ ompl::geometric::RRTnew::GrowState ompl::geometric::RRTnew::growTree(TreeData &t
     if (si_->equalStates(nearestMotion->state, dstate))
         return TRAPPED;
 
-
+/*
     if(!validMotionCheck(tgi.start,nearestMotion->state,dstate)){
 
         return TRAPPED;
     }
-
-    std::cout << "tgi: " << tgi.start << std::endl;
-    rewireMotion(nearestMotion,tgi.start); // ONLY PRITING THE STATES NO REWIRE JUST WRONG FUNCTION NAME TODO RENAME
-    std::cout << "-- End printing states inside motion :" << std::endl;
+*/
+  //  rewireMotion(nearestMotion,tgi.start); // ONLY PRITING THE STATES NO REWIRE JUST WRONG FUNCTION NAME TODO RENAME
 
 
     auto *x_new = createNewMotion(dstate,nearestMotion);
-
+/*
     std::cout<< "Print x_new--> ";
     printMotion(x_new);
     std::cout<<std::endl;
+*/
 
-    if(x_new->cost.value()>1.0)
-        std::cout<<">1 changed" << std::endl;
-
-    std::cout<<"Print nearestMotion before chooseParent:-->";
+ /*   std::cout<<"Print nearestMotion before chooseParent:-->";
     printMotion(nearestMotion);
     std::cout<<std::endl;
-
+*/
     std::vector<Motion * > Z_near;
     tree->nearestK(x_new,1000,Z_near); // todo k??
 
     auto * z_min = chooseParent(Z_near,nearestMotion,x_new,tgi.start);
 
-    std::cout <<"Chosen z_min as new parent-->";
+  /*  std::cout <<"Chosen z_min as new parent-->";
     printMotion(z_min);
     std::cout<<std::endl;
-
+*/
     if(!si_->equalStates(nearestMotion->state,z_min->state))
         OMPL_DEBUG("STATES NOT EQUAL");
 
-    reConnectMotion(x_new,z_min); // set x_new s parent to the node with min cost z_min
-
+    auto * z_new =  createNewMotion(x_new->state,z_min); // set x_new s parent to the node with min cost z_min
+/*
     std::cout <<"New cost values after we reconnected x_new with z_min-->";
     printMotion(x_new);
     std::cout<<std::endl;
-
+*/
     // in rrtstar usenewstate rejection: hier vllt check ob motion cost >1 ?
     /*if(x_new->cost.value() >1.0){
         std::cout << "x_new motion cost too high! : " << x_new->cost.value() << std::endl;
         return TRAPPED;
     }*/
-    OMPL_DEBUG("ADDING MOTION TO TREE");
+    //OMPL_DEBUG("ADDING MOTION TO TREE");
 
-    tree->add(x_new); // wenn nicht dann füge erstmal hinzu
-    tgi.xmotion = x_new; // what is tgi xmotion
-    rewireNew(Z_near,z_min,x_new,tgi.start);
+
+    if(!validMotionCheck(tgi.start,z_min->state,z_new->state)){
+        return TRAPPED;
+    }
+    tree->add(z_new); // wenn nicht dann füge erstmal hinzu
+    tgi.xmotion = z_new; // what is tgi xmotion
+    rewireNew(Z_near,z_min,z_new,tgi.start);
 
 
 
@@ -1065,7 +1071,6 @@ ompl::base::PlannerStatus ompl::geometric::RRTnew::solve(const base::PlannerTerm
 
         GrowState gs = growTree(tree, tgi, rmotion);
 
-
         if (gs != TRAPPED)
         {
             /* remember which motion was just added */
@@ -1109,7 +1114,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTnew::solve(const base::PlannerTerm
                 bestCost_ = base::Cost(maxCost);
                 OMPL_DEBUG("SOLVED, FURTHER REWIRING. Current cost : %d", maxCost);
 
-                constructSolutionPath(startMotion,goalMotion,true,ptc); // saving path before rewiring just to plot
+               // constructSolutionPath(startMotion,goalMotion,true,ptc); // saving path before rewiring just to plot
                 /*
                 startMotion = rewireMotion(startMotion);
                 goalMotion = rewireMotion(goalMotion);
@@ -1134,7 +1139,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTnew::solve(const base::PlannerTerm
             {
                 //rewireTree(startMotion,goalMotion);
 
-
+                bestCost_ = base::Cost(getCostPath(getStates(getMotionVectors(tgi.xmotion))));
 /*
                 if(true) //useRewiring
                     rewireTree(startMotion,goalMotion);

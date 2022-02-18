@@ -232,13 +232,13 @@ namespace ompl
 
             std::vector<base::State *> getStates(std::vector<Motion *>);
 
-          //  std::vector<base::State *> rewire(std::vector<base::State *> mainStates);
+            //  std::vector<base::State *> rewire(std::vector<base::State *> mainStates);
 
 
 
             std::vector<ompl::base::State * > reConnect(ompl::base::State *from,
-                                                                                 std::vector<std::pair<ompl::base::State *,int >> prio_,
-                                                                                 std::vector<std::pair<ompl::base::State *,int >> stack_);
+                                                        std::vector<std::pair<ompl::base::State *,int >> prio_,
+                                                        std::vector<std::pair<ompl::base::State *,int >> stack_);
 
             std::vector<base::State *>
             buildIntermediateStates(base::State *start, std::vector<std::pair<int, ompl::base::State *>> stack_);
@@ -276,7 +276,6 @@ namespace ompl
 
             int getCostPath(Motion *mot_);
 
-            void simplifyPath(std::vector<ompl::base::State *> &mainStates);
             std::string numIterationsProperty() const
             {
                 return std::to_string(numIterations());
@@ -286,7 +285,6 @@ namespace ompl
                 return std::to_string(bestCost().value());
             }
 
-            void getNeighbors(Motion *motion, std::vector<Motion *> &nbh) const;
 
             ompl::geometric::RRTnew::Motion *
             chooseParent(std::vector<Motion *> vector1, Motion *pMotion, Motion *pMotion1, bool tree_inf);
@@ -296,6 +294,12 @@ namespace ompl
             void reConnectMotion(Motion * connectA, Motion * connectB);
 
             void printMotion(Motion *motion);
+
+            base::Cost getIncCost(Motion *m1, Motion *m2);
+
+            void printMotionCosts(Motion *z_near, Motion *z_min, Motion *z_new);
+
+            std::vector<int> getChangedIndexGroups(const base::State *from, const base::State *to);
         };
     }
 }

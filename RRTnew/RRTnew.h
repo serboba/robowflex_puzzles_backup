@@ -148,8 +148,6 @@ namespace ompl
             GrowState growTree(TreeData &tree, TreeGrowingInfo &tgi, Motion *rmotion);
 
 
-            int rewireTree(Motion *startMotion, Motion *goalMotion);
-
 
             std::vector<ompl::geometric::RRTnew::Motion *>
             getMotionVectors(Motion * mot_);
@@ -217,23 +215,16 @@ namespace ompl
                                                         std::vector<std::pair<ompl::base::State *,int >> prio_,
                                                         std::vector<std::pair<ompl::base::State *,int >> stack_);
 
-            std::vector<base::State *>
-            buildIntermediateStates(base::State *start, std::vector<std::pair<int, ompl::base::State *>> stack_);
-
-            std::vector<base::State *>
-            buildIntermediateStates(base::State *from, std::vector<std::pair<int, ompl::base::State *>> prio_,
-                                    std::vector<std::pair<int, ompl::base::State *>> stack_);
-
 
             std::vector<base::State *> buildIsoStates(const std::vector<double> &from_, const std::vector<double> &to_,
-                                                      std::vector<std::vector<int>> &changed_index_groups);
+                                                      std::vector<int> &changed_index_groups);
 
-            std::vector<base::State *> isolateStates(const base::State *rfrom, const base::State *rto);
+            std::vector<base::State *> isolateStates(const base::State *rfrom, const base::State *rto, const int prev_index);
 
-            std::vector<std::vector<int>>
-            reorderGroup(const std::vector<int> &changed_indices, const std::vector<std::vector<int>> &groups);
+            std::vector<int>
+            reorderGroup(const std::vector<int> &groups, const int prev_index);
 
-            std::vector<std::vector<int>>
+            std::vector<int>
             getChangedGroups(const std::vector<double> &from_, const std::vector<double> &to_);
 
             void getChangedIndices(const base::State *rfrom, const base::State *rto, std::vector<int> &indices_) const;
@@ -244,8 +235,6 @@ namespace ompl
             reConnect(base::State *from, std::vector<std::pair<ompl::base::State *, int>> queue_);
 
             Motion * getReConnectedMotions(std::vector<base::State *> states);
-
-            Motion *getReConnectedMotionsGOAL(std::vector<base::State *> states);
 
             int getCostPath(std::vector<base::State *> states_);
 
