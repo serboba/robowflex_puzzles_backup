@@ -33,8 +33,7 @@ namespace ompl
         {
         public:
             /** \brief Constructor */
-            RRTnew(const base::SpaceInformationPtr &si, std::vector<std::vector<int>> group_indices ,bool addIntermediateStates = false,
-                   bool useIsolation = false);
+            RRTnew(const base::SpaceInformationPtr &si, std::vector<std::vector<int>> group_indices, bool useIsolation = false);
 
             ~RRTnew() override;
 
@@ -43,20 +42,6 @@ namespace ompl
             base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) override;
 
             void clear() override;
-
-            /** \brief Return true if the intermediate states generated along motions are to be added to the tree itself
-             */
-            bool getIntermediateStates() const
-            {
-                return addIntermediateStates_;
-            }
-
-            /** \brief Specify whether the intermediate states generated along motions are to be added to the tree
-             * itself */
-            void setIntermediateStates(bool addIntermediateStates)
-            {
-                addIntermediateStates_ = addIntermediateStates;
-            }
 
             /** \brief Set the range the planner is supposed to use.
 
@@ -173,9 +158,6 @@ namespace ompl
             /** \brief The maximum length of a motion to be added to a tree */
             double maxDistance_{0.};
 
-            /** \brief Flag indicating whether intermediate states are added to the built tree of motions */
-            bool addIntermediateStates_;
-
             bool useIsolation_;
             /** \brief The random number generator */
             RNG rng_;
@@ -219,7 +201,7 @@ namespace ompl
             std::vector<base::State *> buildIsoStates(const std::vector<double> &from_, const std::vector<double> &to_,
                                                       std::vector<int> &changed_index_groups);
 
-            std::vector<base::State *> isolateStates(const base::State *rfrom, const base::State *rto, const int prev_index);
+            std::vector<base::State *> isolateStates(const base::State *rfrom, const base::State *rto);
 
             std::vector<int>
             reorderGroup(const std::vector<int> &groups, const int prev_index);
@@ -227,7 +209,6 @@ namespace ompl
             std::vector<int>
             getChangedGroups(const std::vector<double> &from_, const std::vector<double> &to_);
 
-            void getChangedIndices(const base::State *rfrom, const base::State *rto, std::vector<int> &indices_) const;
 
             int rewire(std::vector<base::State *> &mainPath);
 
@@ -241,6 +222,12 @@ namespace ompl
             Motion *rewireMotion(Motion *startMotion);
 
             int getCostPath(Motion *mot_);
+
+            void simplifyActionIntervals(std::vector<ompl::base::State *> &mainPath);
+
+            std::vector<int> getChangedIndices(const base::State *rfrom, const base::State *rto) const;
+
+            std::vector<int> getChangedGroups(const base::State *rfrom, const base::State *rto);
         };
     }
 }
