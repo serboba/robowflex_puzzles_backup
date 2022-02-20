@@ -10,11 +10,12 @@ using namespace robowflex::darts;
 
 void StateSpace::StateSampler::sampleUniform(ompl::base::State *state)
 {
+
     auto *st = state->as<StateSpace::StateType>();
     int index = rng_.uniformInt(0, groups_.size()-1);
 
-    for(int i = 0; i < st->data.size() ; i++){
-        if(abs(st->values[i]) < 1e-10 || abs(st->values[i]) > 1e10 || isnan(st->values[i])) {
+    for(size_t i = 0; i < space_->getDimension() ; i++){
+        if(st->values[i] != 0 && (abs(st->values[i]) < 1e-20 || abs(st->values[i]) > 1e20 || isnan(st->values[i]))) {
             st->values[i] = 0.0;
         }
     }
@@ -24,7 +25,7 @@ void StateSpace::StateSampler::sampleUniform(ompl::base::State *state)
                                          joints_.at(i)->getUpperLimits()(0));
     }
 
- }
+}
 
 
 
@@ -32,6 +33,7 @@ double StateSpace::distance(double v1, double v2) const{
 
    //double d =  sqrt((v1-v2)*(v1-v2)); // EUCLIDEAN
     double d =  abs(v1-v2);             // MANHATTAN
+
     return d;
 }
 
@@ -63,7 +65,7 @@ std::vector<double> StateSpace::getDistances(const StateSpace::StateType *const 
     }
 
    for(size_t j = 0; j<distances_.size(); j++){
-       if(distances_[j] > 1e-10)
+       if(distances_[j] > 1e-10 && !isnan(total_dist))
            distances_[j] /= total_dist;
        else
            distances_[j] = 0.0;
@@ -77,10 +79,9 @@ double StateSpace::distance(const ompl::base::State *state1, const ompl::base::S
 {
     const auto &s1 = state1->as<StateType>();
     const auto &s2 = state2->as<StateType>();
+    double d = 0.0;
 
-    double d = 0;
-
-    for(int i = 0; i< s1->data.size(); i++){
+    for(size_t i = 0; i< dimension_; i++){
         d+= distance (s1->values[i],s2->values[i]);
     }
 
@@ -121,7 +122,13 @@ void StateSpace::interpolate(const ompl::base::State *from, const ompl::base::St
         d_interpolated+= distances.at(i);
     }
 
-    double s = (t-d_interpolated)/distances.at(index);
+    double s = 0.0;
+    if(!abs(distances.at(index)) < 1e-10 ){
+        s = (t-d_interpolated)/distances.at(index);
+    }else{
+       // std::cout<<"HMMM"<<std::endl;
+    }
+
     for(auto const &index_in_group : grouped_indices.at(index)){
         rstate->values[index_in_group] = rfrom->values[index_in_group] + s*(rto->values[index_in_group]-rfrom->values[index_in_group]);
     }
@@ -134,23 +141,24 @@ void StateSpace::interpolate(const ompl::base::State *from, const ompl::base::St
             rstate->values[index_in_group] = rfrom->values[index_in_group];
         }
     }
-/*
+
+    /*
     std::cout << "t : " << t << std::endl;
 
     std::cout << "from: ";
     for(int i = 0; i < dimension_; i++)
-        std::cout << rfrom->data(i) << ", ";
+        std::cout << rfrom->values[i] << ", ";
     std::cout << std::endl;
     std::cout << "to: ";
     for(int i = 0; i < dimension_; i++){
-        std::cout << rto->data(i) << ", ";
+        std::cout << rto->values[i] << ", ";
     }
     std::cout << std::endl;
     std::cout << "out: ";
     for(int i = 0; i < dimension_; i++)
-        std::cout << rstate->data(i) << ", ";
+        std::cout << rstate->values[i] << ", ";
     std::cout <<"\n" << std::endl;
-*/
+    */
 
 }
 
