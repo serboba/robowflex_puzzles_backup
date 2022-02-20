@@ -200,7 +200,6 @@ namespace ompl
             base::Cost bestCost_{std::numeric_limits<double>::quiet_NaN()};
             base::Cost incCost{0};
 
-            int prevIndex{0};
 
             std::vector<std::vector<int>> group_indices;
             Motion *createNewMotion(const base::State *st, Motion *premotion);
@@ -222,15 +221,7 @@ namespace ompl
             std::vector<ompl::base::State * > reConnect(ompl::base::State *from,
                                                         std::vector<std::pair<ompl::base::State *,int >> prio_,
                                                         std::vector<std::pair<ompl::base::State *,int >> stack_);
-
-            std::vector<base::State *>
-            buildIntermediateStates(base::State *start, std::vector<std::pair<int, ompl::base::State *>> stack_);
-
-            std::vector<base::State *>
-            buildIntermediateStates(base::State *from, std::vector<std::pair<int, ompl::base::State *>> prio_,
-                                    std::vector<std::pair<int, ompl::base::State *>> stack_);
-
-
+            
 
             std::vector<base::State *> isolateStates(const base::State *rfrom, const base::State *rto, bool tgi_);
 
@@ -246,17 +237,13 @@ namespace ompl
             int rewire(std::vector<base::State *> &mainPath);
 
             std::vector<base::State *>
-            reConnect(base::State *from, std::vector<std::pair<ompl::base::State *, int>> queue_);
+            reConnect(const base::State *from, std::vector<std::pair<ompl::base::State *, int>> queue_);
 
-            Motion * getReConnectedMotions(std::vector<base::State *> states);
-
-            Motion *getReConnectedMotionsGOAL(std::vector<base::State *> states);
 
             int getCostPath(std::vector<base::State *> states_);
 
             int getCostPath(Motion *mot_);
 
-            void simplifyPath(std::vector<ompl::base::State *> &mainStates);
             std::string numIterationsProperty() const
             {
                 return std::to_string(numIterations());
@@ -268,6 +255,7 @@ namespace ompl
 
             std::vector<int> getChangedGroups(const base::State *rfrom, const base::State *rto);
 
+            void simplifyActionIntervals(std::vector<ompl::base::State *> &mainPath);
         };
     }
 }
