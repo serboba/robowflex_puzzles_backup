@@ -90,13 +90,13 @@ void ompl::geometric::RRTnew::setup()
 void ompl::geometric::RRTnew::freeMemory()
 {
     std::vector<Motion *> motions;
-
+    int counter = 0;
     if (tStart_)
     {
         tStart_->list(motions);
         for (auto &motion : motions)
         {
-            if (motion->state != nullptr)
+            if (motion->state != nullptr){}
                 si_->freeState(motion->state);
             delete motion;
         }
@@ -148,16 +148,17 @@ void ompl::geometric::RRTnew::getChangedIndices(const base::State* rfrom, const 
 
 
 std::vector<ompl::base::State *> ompl::geometric::RRTnew::buildIsoStates(const std::vector<double> &from_,const std::vector<double> &to_,
-                                                                         std::vector<int> changed_index_groups ){
+                                                                         std::vector<int> &changed_index_groups ){
+
     std::vector<ompl::base::State *> isolateResult;
     std::vector<double> intermediate_st(from_.size());
     intermediate_st = from_;
 
-    for(auto v : changed_index_groups){
+    for(size_t v = 0; v < changed_index_groups.size() ; v++){
         for(int i : group_indices.at(v)){
             intermediate_st[i] = to_[i];
         }
-        base::State *temp = si_->getStateSpace()->allocState();
+        base::State *temp = si_->allocState();
         si_->getStateSpace()->copyFromReals(temp,intermediate_st);
         isolateResult.push_back(temp);
     }
@@ -197,7 +198,7 @@ std::vector<int> ompl::geometric::RRTnew::getChangedGroups(const base::State* rf
 }
 
 
-std::vector<ompl::base::State *> ompl::geometric::RRTnew::isolateStates(const base::State* rfrom, const base::State* rto, bool tgi_){
+std::vector<ompl::base::State *> ompl::geometric::RRTnew::isolateStates(const base::State* rfrom, const base::State* rto){
 
     std::vector<double> from_,to_;
     si_->getStateSpace()->copyToReals(from_,rfrom);
@@ -205,26 +206,9 @@ std::vector<ompl::base::State *> ompl::geometric::RRTnew::isolateStates(const ba
 
     std::vector<int> groups = getChangedGroups(from_,to_);
 
-    std::vector<ompl::base::State *> iso_ = buildIsoStates(from_,to_,groups);
+    //std::vector<int> changed_index_groups = reorderGroup(groups, prev_index);
 
-    ompl::base::State * temp_it = si_->getStateSpace()->allocState();
-    si_->getStateSpace()->copyState(temp_it,rfrom);
-    for(auto const &st : iso_)
-    {
-        if (!validMotionCheck(tgi_,temp_it,st))
-        {
-            for(auto &s_ : iso_)
-            {
-                si_->freeState(s_);
-
-            }
-            return {};
-        }
-        si_->getStateSpace()->copyState(temp_it,st);
-
-    }
-
-    return iso_;
+    return buildIsoStates(from_,to_,groups);
 
 }
 
@@ -392,35 +376,19 @@ std::vector<ompl::base::State * > ompl::geometric::RRTnew::getStates(std::vector
 }
 
 
-std::vector<ompl::base::State * > ompl::geometric::RRTnew::reConnect(const ompl::base::State *from,
+std::vector<ompl::base::State * > ompl::geometric::RRTnew::reConnect(ompl::base::State *from,
                                                                      std::vector<std::pair<ompl::base::State *,int >> queue_)
 {
     std::vector<ompl::base::State * > merge_;
-    const base::State * prestate = from;
 
     for(size_t i = 0; i < queue_.size(); i++)
     {
-        ompl::base::State * newEdge = si_->getStateSpace()->allocState();
-        getIntermediateState(prestate,queue_.at(i).first,newEdge,queue_.at(i).second);
-        merge_.push_back(newEdge);
-        prestate = newEdge;
-    }
-
-
-    ompl::base::State * temp_it = si_->getStateSpace()->allocState();
-    si_->getStateSpace()->copyState(temp_it,from);
-    for(auto const &st : merge_)
-    {
-        if (!si_->checkMotion(temp_it,st))
-        {
-            for(auto &s_ : merge_)
-            {
-                si_->freeState(s_);
-
-            }
+        ompl::base::State * newEdge = si_->allocState();
+        getIntermediateState(from,queue_.at(i).first,newEdge,queue_.at(i).second);
+        if(!si_->checkMotion(from,newEdge))
             return {};
-        }
-        si_->getStateSpace()->copyState(temp_it,st);
+        merge_.push_back(newEdge);
+        from = newEdge;
     }
     return merge_;
 }
@@ -444,6 +412,7 @@ std::vector<ompl::base::State * > ompl::geometric::RRTnew::reConnect(ompl::base:
     return mergedStates;
 
 }
+
 
 int ompl::geometric::RRTnew::rewire(std::vector<ompl::base::State *> &mainPath) {
 
@@ -632,21 +601,29 @@ ompl::geometric::RRTnew::GrowState ompl::geometric::RRTnew::growTree(TreeData &t
     auto newCost = opt_->motionCost(nmotion->state,dstate);
     //  std::cout <<"newcost : " << newCost.value() << std::endl;
     if(newCost.value()  > 1.0){ // bestcost = 1.0, wenn mehr als 1 index verändert wurde -> TRAPPED
-        if(useIsolation_) // erlaube cost 2 sonst alg ist stuck auch wenn cube 1 ist
-        {
-            std::vector<ompl::base::State*> dstates = isolateStates(nmotion->state, dstate,tgi.start);
 
+        //    if(useIsolation_ && newCost.value() == 2.0) // erlaube cost 2 sonst alg ist stuck auch wenn cube 1 ist
+        if(useIsolation_ ) // erlaube cost 2 sonst alg ist stuck auch wenn cube 1 ist
+        {
+            auto dstates = isolateStates(nmotion->state, dstate);
+            std::vector<Motion *> stack_motion;
             if (dstates.size() == 0) { // konnte nichts isolieren
-               // std::cout << "err " << std::endl;
+                std::cout << "err " << std::endl;
                 return TRAPPED;
             }
-            std::vector<Motion *> stack_motion;
 
             Motion *premotion = nmotion;
-            for (auto st: dstates)
-            {
+            for (auto st: dstates) {
+
+                if (si_->equalStates(premotion->state, st))
+                    return TRAPPED;
+                if (!validMotionCheck(tgi.start, premotion->state, st))
+                    return TRAPPED;
+
+
                 auto *motion = createNewMotion(st, premotion);
                 stack_motion.push_back(motion);
+
                 premotion = motion;
 
             }
@@ -792,28 +769,71 @@ ompl::base::PlannerStatus ompl::geometric::RRTnew::solve(const base::PlannerTerm
                 // on the solution path
                 //     std::cout<< "in SOLVED" << std::endl;
                 //std::cout<<"in"<<std::endl;
-                int maxCost = getCostPath(startMotion) + getCostPath(goalMotion);
-                // std::cout << "max cost : " << maxCost << std::endl;
-                bestCost_ = base::Cost(maxCost);
-                OMPL_DEBUG("SOLVED, FURTHER REWIRING. Current cost : %d", maxCost);
 
-               // constructSolutionPath(startMotion,goalMotion,true,ptc); // saving path before rewiring just to plot
-                /*
-                startMotion = rewireMotion(startMotion);
-                goalMotion = rewireMotion(goalMotion);
+              //  constructSolutionPath(startMotion,goalMotion,false,ptc);
+                if (startMotion->parent != nullptr)
+                    startMotion = startMotion->parent;
+                else
+                    goalMotion = goalMotion->parent;
 
-                bool once_flag = false;
-                while (!ptc){
-                    OMPL_DEBUG("SOLVED, FURTHER REWIRING. Current cost : %d", maxCost);
-                    startMotion = rewireMotion(startMotion);
-                    goalMotion = rewireMotion(goalMotion);
+                connectionPoint_ = std::make_pair(startMotion->state, goalMotion->state);
 
-                    maxCost = getCostPath(startMotion) + getCostPath(goalMotion);
+                std::vector<Motion *> mpath1 = getMotionVectors(startMotion);
+                std::vector<Motion *> mpath2 = getMotionVectors(goalMotion);
 
+
+                auto path(std::make_shared<PathGeometric>(si_));
+                path->getStates().reserve(mpath1.size() + mpath2.size());
+                for (int i = mpath1.size() - 1; i >= 0; --i){
+                    path->append(mpath1[i]->state);
                 }
-                */
+                for (auto &i : mpath2){
+                    path->append(i->state);
+                }
 
-                constructSolutionPath(startMotion,goalMotion,false,ptc);
+                /*std::ofstream fs1("mazeBEF.txt");
+                path->printAsMatrix(fs1);
+                */
+                // if(!save){
+                base::Cost maxCost_(getCostPath(path->getStates()));
+                bestCost_ = maxCost_;
+                OMPL_DEBUG("SOLVED, STARTING REWIRING, COST BEFORE REWIRING %d:", maxCost_);
+
+
+                int counter =0;
+                bool count_flag = true;
+                std::vector<ompl::base::State *> path_temp = path->getStates();
+                while(count_flag){
+                    rewire(path_temp);
+                    base::Cost temp_cost(getCostPath(path_temp));
+                    //  std::cout << "temp - max : " << temp_cost.value() << "," << maxCost.value()<< std::endl;
+                    if(temp_cost.value() <= maxCost_.value())
+                    {
+                        if(temp_cost.value() == maxCost_.value())
+                            counter++;
+                        if(counter ==5)
+                            count_flag = false;
+                        maxCost_ = temp_cost;
+                        bestCost_ = maxCost_;
+                        path->getStates() = path_temp;
+
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                /*
+                std::ofstream fs2("mazeAF.txt");
+                path->printAsMatrix(fs2);
+        */
+                bestCost_ = maxCost_;
+                OMPL_DEBUG("SOLVED, FURTHER REWIRING. FINAL cost : %d", getCostPath(path->getStates()));
+                simplifyActionIntervals(path->getStates());
+                bestCost_ = base::Cost(getCostPath(path->getStates()));
+                //   std::cout<<"bestcost : " << bestCost_.value() << std::endl;
+
+                pdef_->addSolutionPath(path, false, 0.0, getName());
 
                 solved = true;
                 break;
@@ -916,178 +936,3 @@ void ompl::geometric::RRTnew::getPlannerData(base::PlannerData &data) const
 }
 
 
-/*
-        if(useIsolation_ && newCost.value() == 2.0) // erlaube cost 2 sonst alg ist stuck auch wenn cube 1 ist
-        {
-            auto dstates = isolateStates(nmotion->state, dstate);
-            std::vector<Motion *> stack_motion;
-            if (dstates.size() == 0) { // konnte nichts isolieren
-                std::cout<<"err "<< std::endl;
-                return TRAPPED;
-            }
-
-            Motion *premotion = nmotion;
-            for (auto st: dstates) {
-
-                if (si_->equalStates(premotion->state, st))             return TRAPPED;
-                if (!validMotionCheck(tgi.start, premotion->state, st)) return TRAPPED;
-
-
-                auto *motion = createNewMotion(st, premotion);
-                stack_motion.push_back(motion);
-
-                premotion = motion;
-
-            }
-
-            for(auto const &mot_ : stack_motion){ // add motions at the end only if states could be isolated, only if loop passed without trapped
-                tree->add(mot_);
-                incCost = opt_->combineCosts(incCost,base::Cost(1.0)); // todo ?
-            }
-
-            tgi.xmotion = stack_motion.back();
-
-            return reach ? REACHED : ADVANCED;
-        }
-       */
-
-
-
-/*
-
-void ompl::geometric::RRTnew::getChangedIndices(const base::State* rfrom, const base::State* rto,
-                                                std::vector<int> &indices_) const{
-
-
-    std::vector<double> s1,s2;
-    si_->getStateSpace()->copyToReals(s1,rfrom);
-    si_->getStateSpace()->copyToReals(s2,rto);
-
-    for (size_t i= 0; i < s1.size() ; i++) {
-        if (abs(s1.at(i) - s2.at(i)) > 0.0001) {
-            indices_.push_back(i);
-        }
-    }
-
-}
-
-std::vector<std::vector<int>> ompl::geometric::RRTnew::getChangedGroups(const std::vector<double> &from_,const std::vector<double> &to_){
-    std::vector<std::vector<int>> groups;
-    for(auto group : group_indices){
-        std::vector<int> gr_;
-        for(auto index : group){
-            if(abs(from_.at(index)-to_.at(index))  > 0.0001){
-                gr_.push_back(index);
-            }
-        }
-        if(gr_.size() >0)
-            groups.push_back(gr_);
-    }
-    return groups;
-}
-
-
-std::vector<ompl::base::State *> ompl::geometric::RRTnew::buildIsoStates(const std::vector<double> &from_,const std::vector<double> &to_,
-                                                                         std::vector<std::vector<int>> &changed_index_groups ){
-
-    std::vector<ompl::base::State *> isolateResult;
-    std::vector<double> intermediate_st(from_.size());
-    intermediate_st = from_;
-
-    for(auto v : changed_index_groups){
-        for(int i : v){
-            intermediate_st[i] = to_[i];
-        }
-        base::State *temp = si_->allocState();
-        si_->getStateSpace()->copyFromReals(temp,intermediate_st);
-        isolateResult.push_back(temp);
-    }
-    return isolateResult;
-}
-
-std::vector<std::vector<int>> ompl::geometric::RRTnew::reorderGroup(const std::vector<int> &changed_indices,
-                                                                    const std::vector<std::vector<int>> &groups){
-
-    std::vector<std::vector<int>> changed_index_groups;
-    for(size_t i = 0; i < changed_indices.size() ; i++){
-        std::vector<int> group;
-        for(auto const group_ : groups){
-            std::vector<int> group_obj;
-            if((std::find(group_.begin(),group_.end(),changed_indices.at(i)) != group_.end())){
-                for(size_t j = 0; j < group_.size(); j++){
-                    group_obj.push_back(group_.at(j));
-                }
-                i+= group_.size();
-
-                changed_index_groups.push_back(group_obj);
-                break;
-            }
-        }
-        if(i < changed_indices.size()){
-            group.push_back(changed_indices.at(i));
-            changed_index_groups.push_back(group);
-        }
-    }
-    return changed_index_groups;
-}
-
-std::vector<ompl::base::State *> ompl::geometric::RRTnew::isolateStates(const base::State* rfrom, const base::State* rto){
-
-    std::vector<double> from_,to_;
-    si_->getStateSpace()->copyToReals(from_,rfrom);
-    si_->getStateSpace()->copyToReals(to_,rto);
-
-
-    //std::vector<int> changed_indices(ompl::base::IsoManipulationOptimization::changedIndex(from_,to_,changed_indices));
-    std::vector<int> changed_indices;
-    getChangedIndices(rfrom,rto,changed_indices);
-
-    std::vector<std::vector<int>> groups = getChangedGroups(from_,to_);
-
-    std::vector<std::vector<int>> changed_index_groups = reorderGroup(changed_indices,groups);
-
-    return buildIsoStates(from_,to_,changed_index_groups);
-
-}
-
-ompl::base::State * ompl::geometric::RRTnew::reverseState(const base::State *st){
-    std::vector<double> values;
-    si_->getStateSpace()->copyToReals(values,st);
-    std::reverse(values.begin(),values.end());
-
-    base::State * st_rev = si_->allocState();
-
-    si_->getStateSpace()->copyFromReals(st_rev,values);
-    return st_rev;
-
-}
-
-void ompl::geometric::RRTnew::reverseInterpolate(const base::State *from, const base::State *to, double t, base::State *out){
-
-    std::vector<double> from_,to_,res_;
-    si_->getStateSpace()->copyToReals(from_,from);
-    si_->getStateSpace()->copyToReals(to_,to);
-
-    std::reverse(from_.begin(),from_.end());
-    std::reverse(to_.begin(),to_.end());
-
-    base::State * from_temp = si_->allocState();
-    base::State * to_temp = si_->allocState();
-    base::State * res_temp = si_->allocState();
-
-    si_->getStateSpace()->copyFromReals(from_temp,from_);
-    si_->getStateSpace()->copyFromReals(to_temp,to_);
-
-    si_->getStateSpace()->interpolate(from_temp, to_temp,t , res_temp);
-
-    si_->getStateSpace()->copyToReals(res_,res_temp);
-    std::reverse(res_.begin(),res_.end());
-
-    si_->getStateSpace()->copyFromReals(out,res_);
-
-}
-
-
-
-
- */

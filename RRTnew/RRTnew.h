@@ -221,12 +221,6 @@ namespace ompl
             std::vector<ompl::base::State * > reConnect(ompl::base::State *from,
                                                         std::vector<std::pair<ompl::base::State *,int >> prio_,
                                                         std::vector<std::pair<ompl::base::State *,int >> stack_);
-            
-
-            std::vector<base::State *> isolateStates(const base::State *rfrom, const base::State *rto, bool tgi_);
-
-            std::vector<base::State *> buildIsoStates(const std::vector<double> &from_, const std::vector<double> &to_,
-                                                      std::vector<int> changed_index_groups);
 
 
             std::vector<int>
@@ -237,7 +231,7 @@ namespace ompl
             int rewire(std::vector<base::State *> &mainPath);
 
             std::vector<base::State *>
-            reConnect(const base::State *from, std::vector<std::pair<ompl::base::State *, int>> queue_);
+            reConnect( base::State *from, std::vector<std::pair<ompl::base::State *, int>> queue_);
 
 
             int getCostPath(std::vector<base::State *> states_);
@@ -256,6 +250,11 @@ namespace ompl
             std::vector<int> getChangedGroups(const base::State *rfrom, const base::State *rto);
 
             void simplifyActionIntervals(std::vector<ompl::base::State *> &mainPath);
+
+            std::vector<base::State *> isolateStates(const base::State *rfrom, const base::State *rto);
+
+            std::vector<base::State *> buildIsoStates(const std::vector<double> &from_, const std::vector<double> &to_,
+                                                      std::vector<int> &changed_index_groups);
         };
     }
 }
