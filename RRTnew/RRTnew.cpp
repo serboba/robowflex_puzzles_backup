@@ -59,7 +59,7 @@ ompl::geometric::RRTnew::RRTnew(const base::SpaceInformationPtr &si, std::vector
     distanceBetweenTrees_ = std::numeric_limits<double>::infinity();
     addIntermediateStates_ = addIntermediateStates;
     useIsolation_ = useIsolation;
-    addPlannerProgressProperty("best cost DOUBLE", [this] { return bestCostProperty(); });
+    addPlannerProgressProperty("best cost DOUBLE", [this] { return bestCostProgressProperty(); });
     addPlannerProgressProperty("iterations INTEGER", [this] { return numIterationsProperty(); });
 }
 
@@ -537,16 +537,18 @@ void ompl::geometric::RRTnew::simplifyActionIntervals(std::vector<ompl::base::St
         }
     }
     std::vector<ompl::base::State *> simplifiedPath;
-    simplifiedPath.reserve(transitions.size()+2);
+    //simplifiedPath.reserve(transitions.size()+2);
     simplifiedPath.push_back(mainPath.at(0));
-    for(auto &index : transitions)
-        simplifiedPath.push_back(mainPath.at(index));
+    for(auto &index : transitions){
+        if(!si_->equalStates(mainPath.at(index),simplifiedPath.back()))
+            simplifiedPath.push_back(mainPath.at(index));
+    }
     simplifiedPath.push_back(mainPath.back());
 
 
     for(size_t i = simplifiedPath.size()-1 ; i > 0 ; i--)
     {
-        if(getChangedIndex(simplifiedPath.at(i),simplifiedPath.at(i-1)) != 0)
+        if(getChangedIndex(simplifiedPath.at(i),simplifiedPath.at(i-1)) != 0) // goal group 0, fetch 4
         {
             simplifiedPath.erase(simplifiedPath.begin()+i);
         } else
@@ -608,7 +610,7 @@ ompl::geometric::RRTnew::GrowState ompl::geometric::RRTnew::growTree(TreeData &t
             auto dstates = isolateStates(nmotion->state, dstate);
             std::vector<Motion *> stack_motion;
             if (dstates.size() == 0) { // konnte nichts isolieren
-                std::cout << "err " << std::endl;
+           //     std::cout << "err " << std::endl;
                 return TRAPPED;
             }
 
@@ -698,6 +700,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTnew::solve(const base::PlannerTerm
     base::State *rstate = rmotion->state;
     bool solved = false;
 
+
     while (!ptc)
     {
         iterations_++;
@@ -759,6 +762,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTnew::solve(const base::PlannerTerm
             Motion *startMotion = tgi.start ? tgi.xmotion : addedMotion;
             Motion *goalMotion = tgi.start ? addedMotion : tgi.xmotion;
 
+            bestCost_ = base::Cost(getCostPath(startMotion) + getCostPath(goalMotion));
 
             /* if we connected the trees in a valid way (start and goal pair is valid)*/
             if (gsc == REACHED && goal->isStartGoalPairValid(startMotion->root, goalMotion->root) )
@@ -790,14 +794,14 @@ ompl::base::PlannerStatus ompl::geometric::RRTnew::solve(const base::PlannerTerm
                 for (auto &i : mpath2){
                     path->append(i->state);
                 }
-
-                /*std::ofstream fs1("mazeBEF.txt");
+/*
+                std::ofstream fs1("mazeBEF.txt");
                 path->printAsMatrix(fs1);
-                */
+*/
                 // if(!save){
                 base::Cost maxCost_(getCostPath(path->getStates()));
                 bestCost_ = maxCost_;
-                OMPL_DEBUG("SOLVED, STARTING REWIRING, COST BEFORE REWIRING %d:", maxCost_);
+                OMPL_DEBUG("SOLVED, STARTING REWIRING, COST BEFORE REWIRING %d:", maxCost_.value());
 
 
                 int counter =0;
@@ -823,15 +827,19 @@ ompl::base::PlannerStatus ompl::geometric::RRTnew::solve(const base::PlannerTerm
                         break;
                     }
                 }
-                /*
+/*
                 std::ofstream fs2("mazeAF.txt");
                 path->printAsMatrix(fs2);
-        */
+*/
                 bestCost_ = maxCost_;
-                OMPL_DEBUG("SOLVED, FURTHER REWIRING. FINAL cost : %d", getCostPath(path->getStates()));
                 simplifyActionIntervals(path->getStates());
-                bestCost_ = base::Cost(getCostPath(path->getStates()));
-                //   std::cout<<"bestcost : " << bestCost_.value() << std::endl;
+                base::Cost temp_simpl(getCostPath(path->getStates()));
+
+                bestCost_ = temp_simpl;
+              //std::cout<<"bestcost : " << temp_simpl.value() << std::endl;
+              // std::cout<<"bestcost : " << bestCost_.value() << std::endl;
+
+                OMPL_DEBUG("SOLVED, DONE SIMPLIFY, FINAL cost : %d", temp_simpl.distval());
 
                 pdef_->addSolutionPath(path, false, 0.0, getName());
 
@@ -840,14 +848,6 @@ ompl::base::PlannerStatus ompl::geometric::RRTnew::solve(const base::PlannerTerm
             }
             else
             {
-                //rewireTree(startMotion,goalMotion);
-
-
-/*
-                if(true) //useRewiring
-                    rewireTree(startMotion,goalMotion);
-*/
-
                 // We didn't reach the goal, but if we were extending the start
                 // tree, then we can mark/improve the approximate path so far.
                 if (tgi.start)
@@ -935,4 +935,7 @@ void ompl::geometric::RRTnew::getPlannerData(base::PlannerData &data) const
     data.properties["approx goal distance REAL"] = ompl::toString(distanceBetweenTrees_);
 }
 
-
+std::string ompl::geometric::RRTnew::bestCostProgressProperty() const
+{
+    return std::to_string(this->bestCost_.value());
+}

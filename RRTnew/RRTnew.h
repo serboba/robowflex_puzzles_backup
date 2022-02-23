@@ -91,12 +91,12 @@ namespace ompl
             {
                 return iterations_;
             }
-
+/*
             ompl::base::Cost bestCost() const
             {
                 return bestCost_;
             }
-
+*/
             void setup() override;
 
         protected:
@@ -200,6 +200,8 @@ namespace ompl
             base::Cost bestCost_{std::numeric_limits<double>::quiet_NaN()};
             base::Cost incCost{0};
 
+            std::string bestCostProgressProperty() const;
+
 
             std::vector<std::vector<int>> group_indices;
             Motion *createNewMotion(const base::State *st, Motion *premotion);
@@ -242,10 +244,7 @@ namespace ompl
             {
                 return std::to_string(numIterations());
             }
-            std::string bestCostProperty() const
-            {
-                return std::to_string(bestCost().value());
-            }
+
 
             std::vector<int> getChangedGroups(const base::State *rfrom, const base::State *rto);
 
