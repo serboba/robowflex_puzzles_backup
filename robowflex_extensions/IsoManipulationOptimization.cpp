@@ -32,34 +32,18 @@ ompl::base::Cost ompl::base::IsoManipulationOptimization::infiniteCost() const
 
 bool ompl::base::IsoManipulationOptimization::isCostBetterThan(const Cost &c1, const Cost &c2) const
 {
-/*
-    if(c1.value() == c2.value())// action cost equal
+
+    if(c1.value() == c2.value())// action cost equal 2 2
         return c1.distval() < c2.distval();
     else
         return c1.value() < c2.value();
-*/
 
-    if(c1.value() < c2.value()){
-        return c1.distval() < c2.distval();
-    }
-    return false;
-
-/*
-    if(c1.value() == 1 && c2.value() == 1){
-        return c1.distval() < c2.distval();
-    }
-
-    else if(c1.value() < c2.value()){
-        return c1.distval() < c2.distval();
-    }
-        return false;
-*/
 }
 
 bool ompl::base::IsoManipulationOptimization::isCostEquivalentTo(const Cost &c1, const Cost &c2) const
 {
     if (c1.value() == c2.value())
-        if (abs(c1.distval() -c2.distval())< 1e-10)
+        if (abs(c1.distval() - c2.distval())< 1e-10)
             return true;
     return false;
 }

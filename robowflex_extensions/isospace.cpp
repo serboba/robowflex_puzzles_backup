@@ -10,20 +10,26 @@ using namespace robowflex::darts;
 
 void StateSpace::StateSampler::sampleUniform(ompl::base::State *state)
 {
-
-    auto *st = state->as<StateSpace::StateType>();
+/*
+   auto *st = state->as<StateSpace::StateType>();
     int index = rng_.uniformInt(0, groups_.size()-1);
 
     for(size_t i = 0; i < space_->getDimension() ; i++){
-        if(st->values[i] != 0 && (abs(st->values[i]) < 1e-20 || abs(st->values[i]) > 1e20 || isnan(st->values[i]))) {
+        if(abs(st->values[i]) < 1e-20 || abs(st->values[i]) > 1e20 || isnan(st->values[i])) {
             st->values[i] = 0.0;
         }
     }
 
-    for(auto &i : groups_.at(index)){
+    for(const auto &i : groups_.at(index)){
         st->values[i] = rng_.uniformReal(joints_.at(i)->getLowerLimits()(0),
                                          joints_.at(i)->getUpperLimits()(0));
     }
+*/
+
+    auto *as = state->as<StateType>();
+
+    for (const auto &joint : joints_)
+        joint->sample(joint->getSpaceVars(as->data));
 
 }
 
@@ -106,42 +112,50 @@ void StateSpace::interpolate(const ompl::base::State *from, const ompl::base::St
     for(int i = 0; i < dimension_; i++)
         std::cout << rto->values[i] << ", ";
     std::cout << std::endl;
+
+    std::cout << "t : " << t <<std::endl;
+
 */
-
-    std::vector<double> distances = getDistances(rfrom,rto);  // vorher 0.5, 0.3, 0.2, 0.4 jetzt 0.5, 0.5, 0.4 findindex 1
-
-    int index = findIndex(distances,t);
-    double d_interpolated = 0.0;
-
-
- //   std::cout << "index INT: " << index<< std::endl;
-    for (int i = 0; i < index; i++){
-        for(auto const &index_in_group : grouped_indices.at(i)){
-            rstate->values[index_in_group] = rto->values[index_in_group];
-        }
-        d_interpolated+= distances.at(i);
-    }
-
-    double s = 0.0;
-    if(!abs(distances.at(index)) < 1e-10 ){
-        s = (t-d_interpolated)/distances.at(index);
-    }else{
-       // std::cout<<"HMMM"<<std::endl;
-    }
-
-    for(auto const &index_in_group : grouped_indices.at(index)){
-        rstate->values[index_in_group] = rfrom->values[index_in_group] + s*(rto->values[index_in_group]-rfrom->values[index_in_group]);
-    }
-
-
-
-    for(size_t i = index+1; i < grouped_indices.size(); i++){
-
-        for(auto const &index_in_group : grouped_indices.at(i)){
-            rstate->values[index_in_group] = rfrom->values[index_in_group];
+    if(t>= 1)
+    {
+        for (int i = 0; i < dimension_; i++) {
+            rstate->values[i] = rto->values[i];
         }
     }
+    else
+    {
+        std::vector<double> distances = getDistances(rfrom,rto);  // vorher 0.5, 0.3, 0.2, 0.4 jetzt 0.5, 0.5, 0.4 findindex 1
 
+        int index = findIndex(distances,t);
+        double d_interpolated = 0.0;
+
+
+        for (int i = 0; i < index; i++){
+            for(auto const &index_in_group : grouped_indices.at(i)){
+                rstate->values[index_in_group] = rto->values[index_in_group];
+            }
+            d_interpolated+= distances.at(i);
+        }
+
+        double s = 0.0;
+        if(!abs(distances.at(index)) < 1e-10 ){
+            s = (t-d_interpolated)/distances.at(index);
+        }else{
+       //     std::cout<<"hmmm"<<std::endl;
+        }
+
+        for(auto const &index_in_group : grouped_indices.at(index)){
+            rstate->values[index_in_group] = rfrom->values[index_in_group] + s*(rto->values[index_in_group]-rfrom->values[index_in_group]);
+        }
+
+        for(size_t i = index+1; i < grouped_indices.size(); i++){
+
+            for(auto const &index_in_group : grouped_indices.at(i)){
+                rstate->values[index_in_group] = rfrom->values[index_in_group];
+            }
+        }
+
+    }
     /*
     std::cout << "t : " << t << std::endl;
 
