@@ -51,6 +51,10 @@ namespace ompl
                 return addIntermediateStates_;
             }
 
+            ompl::base::Cost bestCost() const
+            {
+                return bestCost_;
+            }
             /** \brief Specify whether the intermediate states generated along motions are to be added to the tree
              * itself */
             void setIntermediateStates(bool addIntermediateStates)
@@ -163,9 +167,6 @@ namespace ompl
             void
             getIntermediateState(const base::State *from, const base::State *to, base::State *state, int index_group);
 
-            void constructSolutionPath(Motion *startMotion, Motion *goalMotion, bool save,
-                                       const base::PlannerTerminationCondition &ptc);
-
             /** \brief State sampler */
             base::StateSamplerPtr sampler_;
 
@@ -254,6 +255,10 @@ namespace ompl
 
             std::vector<base::State *> buildIsoStates(const std::vector<double> &from_, const std::vector<double> &to_,
                                                       std::vector<int> &changed_index_groups);
+
+            void simplifyPath(std::vector<ompl::base::State *> &path);
+
+            void checkRepairPath(std::vector<ompl::base::State *> &path_);
         };
     }
 }

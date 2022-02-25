@@ -97,7 +97,7 @@ void ompl::geometric::RRTnew::freeMemory()
         for (auto &motion : motions)
         {
             if (motion->state != nullptr){}
-                si_->freeState(motion->state);
+            si_->freeState(motion->state);
             delete motion;
         }
     }
@@ -250,81 +250,6 @@ std::vector<ompl::geometric::RRTnew::Motion *> ompl::geometric::RRTnew::getMotio
     return vec;
 }
 
-void ompl::geometric::RRTnew::constructSolutionPath(Motion * startMotion, Motion * goalMotion, bool save,const base::PlannerTerminationCondition &ptc)
-{
-
-    if (startMotion->parent != nullptr)
-        startMotion = startMotion->parent;
-    else
-        goalMotion = goalMotion->parent;
-
-    connectionPoint_ = std::make_pair(startMotion->state, goalMotion->state);
-
-    std::vector<Motion *> mpath1 = getMotionVectors(startMotion);
-    std::vector<Motion *> mpath2 = getMotionVectors(goalMotion);
-
-
-    auto path(std::make_shared<PathGeometric>(si_));
-    path->getStates().reserve(mpath1.size() + mpath2.size());
-    for (int i = mpath1.size() - 1; i >= 0; --i){
-        path->append(mpath1[i]->state);
-    }
-    for (auto &i : mpath2){
-        path->append(i->state);
-    }
-
-    /*std::ofstream fs1("mazeBEF.txt");
-    path->printAsMatrix(fs1);
-    */
-    // if(!save){
-        base::Cost maxCost(getCostPath(path->getStates()));
-        bestCost_ = maxCost;
-        OMPL_DEBUG("SOLVED, STARTING REWIRING, COST BEFORE REWIRING %d:", maxCost);
-
-
-        int counter =0;
-
-        std::vector<ompl::base::State *> path_temp = path->getStates();
-        while(!ptc){
-            rewire(path_temp);
-            base::Cost temp_cost(getCostPath(path_temp));
-            //  std::cout << "temp - max : " << temp_cost.value() << "," << maxCost.value()<< std::endl;
-            if(temp_cost.value() <= maxCost.value())
-            {
-                if(temp_cost.value() == maxCost.value())
-                    counter++;
-                if(counter ==5)
-                    break;
-                maxCost = temp_cost;
-                bestCost_ = maxCost;
-                path->getStates() = path_temp;
-
-
-            }
-            else
-            {
-                break;
-            }
-        }
-        /*
-        std::ofstream fs2("mazeAF.txt");
-        path->printAsMatrix(fs2);
-*/
-        bestCost_ = maxCost;
-        OMPL_DEBUG("SOLVED, FURTHER REWIRING. FINAL cost : %d", getCostPath(path->getStates()));
-        simplifyActionIntervals(path->getStates());
-        bestCost_ = base::Cost(getCostPath(path->getStates()));
-     //   std::cout<<"bestcost : " << bestCost_.value() << std::endl;
-
-        pdef_->addSolutionPath(path, false, 0.0, getName());
- /*   }
-    else{
-        std::ofstream fs1("mazeBEFORE.txt");
-        path->printAsMatrix(fs1);
-    }*/
-}
-
-
 void ompl::geometric::RRTnew::getIntermediateState(const ompl::base::State *from,const ompl::base::State * to, ompl::base::State *state, int index_group)
 {
     std::vector<double> s_new_v,to_;
@@ -356,6 +281,11 @@ int ompl::geometric::RRTnew::getChangedIndex(const ompl::base::State *from,const
                 return i;
         }
     }
+    OMPL_ERROR("NOTHING FOUND");
+    std::cout<< "nothing found" << std::endl;
+    si_->printState(from);
+    si_->printState(to);
+    return -1;
 }
 
 
@@ -366,7 +296,7 @@ std::vector<ompl::base::State * > ompl::geometric::RRTnew::getStates(std::vector
 
     for(auto &i: motions){
         if(!states.empty() && si_->equalStates(i->state,states.back())){
-           // std::cout << "----STATES EQUAL :" << std::endl;
+            // std::cout << "----STATES EQUAL :" << std::endl;
             continue;
         }
         states.push_back(i->state);
@@ -472,15 +402,20 @@ int ompl::geometric::RRTnew::rewire(std::vector<ompl::base::State *> &mainPath) 
             if(!mergeIndices.empty() && !queueIndices.empty())
                 rewiredConnection = reConnect(fromState,mergeIndices,queueIndices);
             else{
-                toID = toID+1;
+
+              //  toID = toID+1;
                 if(toID>= mainPath.size()-1)
                     return rewireCount;
-                prev_index = getChangedIndex(mainPath.at(toID),mainPath.at(toID+1));
+                prev_index = getChangedIndex(mainPath.at(toID-1),mainPath.at(toID));
+
+                //prev_index = getChangedIndex(mainPath.at(fromID),mainPath.at(toID));
+                //continue;
+                // continue;
                 // todo check if this is still correct (should be)
             }
 
             if(rewiredConnection.empty()){ // no rewiring possible because of invalid motion but no problem, just start with next the next state and go on
-                prev_index = getChangedIndex(mainPath.at(fromID),mainPath.at(toID));
+                prev_index = getChangedIndex(mainPath.at(toID-1),mainPath.at(toID));
                 continue;
             }
 
@@ -492,10 +427,12 @@ int ompl::geometric::RRTnew::rewire(std::vector<ompl::base::State *> &mainPath) 
                 l++;
             }
 
-            toID = toID+mergeIndices.size()+1; // check??
+            fromID = fromID+mergeIndices.size(); // check??
             if(toID>= mainPath.size()-1)
                 return rewireCount;
-            prev_index = getChangedIndex(mainPath.at(toID),mainPath.at(toID+1));
+            prev_index = getChangedIndex(mainPath.at(fromID),mainPath.at(fromID+1));
+            toID = fromID+1;
+
         }
     }
 
@@ -505,11 +442,13 @@ int ompl::geometric::RRTnew::rewire(std::vector<ompl::base::State *> &mainPath) 
 
 int ompl::geometric::RRTnew::getCostPath(std::vector<ompl::base::State * > states_)
 {
+
     int prev_index = getChangedIndex(states_.at(0),states_.at(1));
     int cost = 1;
     for (int i = 1; i < states_.size()-1 ; ++i) {
         //  si_->printState(states_.at(i));
         //  si_->printState(states_.at(i+1));
+
         if(prev_index != getChangedIndex(states_.at(i),states_.at(i+1)))
         {
             cost++;
@@ -610,7 +549,7 @@ ompl::geometric::RRTnew::GrowState ompl::geometric::RRTnew::growTree(TreeData &t
             auto dstates = isolateStates(nmotion->state, dstate);
             std::vector<Motion *> stack_motion;
             if (dstates.size() == 0) { // konnte nichts isolieren
-           //     std::cout << "err " << std::endl;
+                //     std::cout << "err " << std::endl;
                 return TRAPPED;
             }
 
@@ -650,8 +589,53 @@ ompl::geometric::RRTnew::GrowState ompl::geometric::RRTnew::growTree(TreeData &t
     return reach ? REACHED : ADVANCED;
 }
 
+void ompl::geometric::RRTnew::simplifyPath(std::vector<ompl::base::State *> &path)
+{
+
+    int counter =0;
+    bool count_flag = true;
+    base::Cost maxCost_(getCostPath(path));
+    std::vector<ompl::base::State *> path_temp = path;
+    while(count_flag){
+        rewire(path_temp);
+        base::Cost temp_cost(getCostPath(path_temp));
+        //  std::cout << "temp - max : " << temp_cost.value() << "," << maxCost.value()<< std::endl;
+        if(temp_cost.value() <= maxCost_.value())
+        {
+            if(temp_cost.value() == maxCost_.value())
+                counter++;
+            if(counter ==5)
+                count_flag = false;
+            maxCost_ = temp_cost;
+            path = path_temp;
+
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    /*   std::ofstream fs2("mazeAF.txt");
+       path->printAsMatrix(fs2);
+*/
+    simplifyActionIntervals(path);
+
+}
 
 
+void ompl::geometric::RRTnew::checkRepairPath(std::vector<ompl::base::State *> &path_)
+{
+
+    for(size_t i = 0; i < path_.size()-1; i++)
+    {
+        if(si_->equalStates(path_.at(i),path_.at(i+1))){
+            std::cout<<"----------------------YES EQUAL STATES MAYBE CONNECTION POINT" << std::endl;
+            path_.erase(path_.begin()+i);
+        }
+
+    }
+}
 
 ompl::base::PlannerStatus ompl::geometric::RRTnew::solve(const base::PlannerTerminationCondition &ptc)
 {
@@ -699,6 +683,9 @@ ompl::base::PlannerStatus ompl::geometric::RRTnew::solve(const base::PlannerTerm
     auto *rmotion = new Motion(si_);
     base::State *rstate = rmotion->state;
     bool solved = false;
+
+    auto best_path(std::make_shared<PathGeometric>(si_));
+    bestCost_ = opt_->infiniteCost();
 
 
     while (!ptc)
@@ -762,19 +749,11 @@ ompl::base::PlannerStatus ompl::geometric::RRTnew::solve(const base::PlannerTerm
             Motion *startMotion = tgi.start ? tgi.xmotion : addedMotion;
             Motion *goalMotion = tgi.start ? addedMotion : tgi.xmotion;
 
-            bestCost_ = base::Cost(getCostPath(startMotion) + getCostPath(goalMotion));
 
             /* if we connected the trees in a valid way (start and goal pair is valid)*/
             if (gsc == REACHED && goal->isStartGoalPairValid(startMotion->root, goalMotion->root) )
             {
 
-                // it must be the case that either the start tree or the goal tree has made some progress
-                // so one of the parents is not nullptr. We go one step 'back' to avoid having a duplicate state
-                // on the solution path
-                //     std::cout<< "in SOLVED" << std::endl;
-                //std::cout<<"in"<<std::endl;
-
-              //  constructSolutionPath(startMotion,goalMotion,false,ptc);
                 if (startMotion->parent != nullptr)
                     startMotion = startMotion->parent;
                 else
@@ -794,57 +773,41 @@ ompl::base::PlannerStatus ompl::geometric::RRTnew::solve(const base::PlannerTerm
                 for (auto &i : mpath2){
                     path->append(i->state);
                 }
-/*
-                std::ofstream fs1("mazeBEF.txt");
-                path->printAsMatrix(fs1);
-*/
-                // if(!save){
-                base::Cost maxCost_(getCostPath(path->getStates()));
-                bestCost_ = maxCost_;
-                OMPL_DEBUG("SOLVED, STARTING REWIRING, COST BEFORE REWIRING %d:", maxCost_.value());
 
 
-                int counter =0;
-                bool count_flag = true;
-                std::vector<ompl::base::State *> path_temp = path->getStates();
-                while(count_flag){
-                    rewire(path_temp);
-                    base::Cost temp_cost(getCostPath(path_temp));
-                    //  std::cout << "temp - max : " << temp_cost.value() << "," << maxCost.value()<< std::endl;
-                    if(temp_cost.value() <= maxCost_.value())
-                    {
-                        if(temp_cost.value() == maxCost_.value())
-                            counter++;
-                        if(counter ==5)
-                            count_flag = false;
-                        maxCost_ = temp_cost;
-                        bestCost_ = maxCost_;
-                        path->getStates() = path_temp;
+                std::ofstream fs("mazeREP.txt");
+                path->printAsMatrix(fs);
+                checkRepairPath(path->getStates());
+                std::ofstream fsx("mazeBF.txt");
+                path->printAsMatrix(fsx);
 
-                    }
-                    else
-                    {
-                        break;
-                    }
+
+                simplifyPath(path->getStates());
+
+                std::ofstream f2("mazeAF.txt");
+                path->printAsMatrix(f2);
+
+
+                if(getCostPath(path->getStates()) < bestCost_.value())
+                {
+                      std::cout << "we found better path :" << getCostPath(path->getStates()) << ", earlier : " << bestCost_.value() << std::endl;
+                    best_path = path;
+                    bestCost_ = base::Cost(getCostPath(best_path->getStates()),0.0);
                 }
-/*
-                std::ofstream fs2("mazeAF.txt");
-                path->printAsMatrix(fs2);
-*/
-                bestCost_ = maxCost_;
-                simplifyActionIntervals(path->getStates());
-                base::Cost temp_simpl(getCostPath(path->getStates()));
 
-                bestCost_ = temp_simpl;
-              //std::cout<<"bestcost : " << temp_simpl.value() << std::endl;
-              // std::cout<<"bestcost : " << bestCost_.value() << std::endl;
+                if(ptc){
+                    pdef_->addSolutionPath(best_path, false, 0.0, getName());
+                         std::ofstream f3("mazeRES.txt");
+                        path->printAsMatrix(f3);
 
-                OMPL_DEBUG("SOLVED, DONE SIMPLIFY, FINAL cost : %d", temp_simpl.distval());
+                    solved = true;
+                    break;
+                }else
+                {
+                      std::cout << "best cost current : " << bestCost_.value() << ", found : " <<  getCostPath(path->getStates())  << std::endl;
+                    continue;
+                }
 
-                pdef_->addSolutionPath(path, false, 0.0, getName());
-
-                solved = true;
-                break;
             }
             else
             {
