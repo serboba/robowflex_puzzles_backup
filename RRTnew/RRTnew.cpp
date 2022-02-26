@@ -155,7 +155,7 @@ std::vector<ompl::base::State *> ompl::geometric::RRTnew::buildIsoStates(const s
     intermediate_st = from_;
 
     for(size_t v = 0; v < changed_index_groups.size() ; v++){
-        for(int i : group_indices.at(v)){
+        for(int i : group_indices.at(changed_index_groups.at(v))){
             intermediate_st[i] = to_[i];
         }
         base::State *temp = si_->allocState();
@@ -348,6 +348,14 @@ int ompl::geometric::RRTnew::rewire(std::vector<ompl::base::State *> &mainPath) 
 
     int rewireCount = 0;
     int prev_index = getChangedIndex(mainPath.at(0),mainPath.at(1));
+    /*std::cout << "--------- START" << std::endl;
+    for(auto &st : mainPath)
+    {
+        si_->printState(st);
+    }
+    std::cout << "--------- END" << std::endl;
+*/
+
     for(size_t toID = 1; toID < mainPath.size()-1; ++toID){
         size_t fromID = toID-1;
 
@@ -403,7 +411,7 @@ int ompl::geometric::RRTnew::rewire(std::vector<ompl::base::State *> &mainPath) 
                 rewiredConnection = reConnect(fromState,mergeIndices,queueIndices);
             else{
 
-              //  toID = toID+1;
+                //  toID = toID+1;
                 if(toID>= mainPath.size()-1)
                     return rewireCount;
                 prev_index = getChangedIndex(mainPath.at(toID-1),mainPath.at(toID));
@@ -422,17 +430,26 @@ int ompl::geometric::RRTnew::rewire(std::vector<ompl::base::State *> &mainPath) 
             rewireCount+=rewiredConnection.size();
             int l = 0;
 
+            //   std::cout<<"SUBPATH----START: "<< toID << ", toID+rewsize: "<< toID+rewiredConnection.size() << std::endl;
             for(size_t j = toID; j <toID+rewiredConnection.size(); j++){
                 mainPath[j] = rewiredConnection.at(l);
                 l++;
+                //     si_->printState(mainPath.at(j));
             }
-
+            //  std::cout<<"SUBPATH----END" << std::endl;
+            //  std::cout<<"path sub size: " << rewiredConnection.size() << ", fromID : " << fromID << ", toID : " << toID << std::endl;
             fromID = fromID+mergeIndices.size(); // check??
             if(toID>= mainPath.size()-1)
                 return rewireCount;
             prev_index = getChangedIndex(mainPath.at(fromID),mainPath.at(fromID+1));
             toID = fromID+1;
 
+            /*si_->printState(mainPath.at(fromID));
+            si_->printState(mainPath.at(fromID+1));
+            si_->printState(mainPath.at(toID-1));
+            si_->printState(mainPath.at(toID));
+            std::cout<<"path sub size: " << rewiredConnection.size() << ", NEW fromID : " << fromID << ", toID : " << toID << std::endl;
+*/
         }
     }
 
@@ -634,6 +651,41 @@ void ompl::geometric::RRTnew::checkRepairPath(std::vector<ompl::base::State *> &
             path_.erase(path_.begin()+i);
         }
 
+        if(getChangedGroups(path_.at(i),path_.at(i+1)).size()> 1)
+         {
+             std::cout<<"----------------------YES HIGH COST" << std::endl;
+             std::cout<<"----------------------PATH BEFORE ISO REPAIR START : i : "<< i << std::endl;
+             for(auto &x : path_)
+                 si_->printState(x);
+             std::cout<<"----------------------PATH BEFORE ISO REPAIR END" << std::endl;
+
+             std::vector<ompl::base::State *> iso_ = isolateStates(path_.at(i),path_.at(i+1));
+             bool check = true;
+
+             if(check){
+
+                  std::cout<<"----------------------ISO REPAIR START : i : "<< i << std::endl;
+                 for(auto &x : iso_)
+                     si_->printState(x);
+                 std::cout<<"----------------------ISO REPAIR END" << std::endl;
+                 std::cout<<"BETWEEN : "<< std::endl;
+                 si_->printState(path_.at(i));
+                 si_->printState(path_.at(i+1));
+
+
+                 //iso_.pop_back();
+                 path_.insert(path_.begin()+i,iso_.begin(),iso_.end());
+
+
+                 std::cout<<"----------------------PATH AFTER ISO REPAIR START : i : "<< i << std::endl;
+                 for(auto &x : path_)
+                     si_->printState(x);
+                 std::cout<<"----------------------PATH AFTER ISO REPAIR END" << std::endl;
+
+             }
+
+         }
+
     }
 }
 
@@ -685,6 +737,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTnew::solve(const base::PlannerTerm
     bool solved = false;
 
     auto best_path(std::make_shared<PathGeometric>(si_));
+    best_path->getStates().reserve(100);
     bestCost_ = opt_->infiniteCost();
 
 
@@ -777,7 +830,9 @@ ompl::base::PlannerStatus ompl::geometric::RRTnew::solve(const base::PlannerTerm
 
                 std::ofstream fs("mazeREP.txt");
                 path->printAsMatrix(fs);
+
                 checkRepairPath(path->getStates());
+
                 std::ofstream fsx("mazeBF.txt");
                 path->printAsMatrix(fsx);
 
@@ -790,27 +845,33 @@ ompl::base::PlannerStatus ompl::geometric::RRTnew::solve(const base::PlannerTerm
 
                 if(getCostPath(path->getStates()) < bestCost_.value())
                 {
-                      std::cout << "we found better path :" << getCostPath(path->getStates()) << ", earlier : " << bestCost_.value() << std::endl;
+                    //           std::cout << "we found better path :" << getCostPath(path->getStates()) << ", earlier : " << bestCost_.value() << std::endl;
                     best_path = path;
                     bestCost_ = base::Cost(getCostPath(best_path->getStates()),0.0);
                 }
 
                 if(ptc){
                     pdef_->addSolutionPath(best_path, false, 0.0, getName());
-                         std::ofstream f3("mazeRES.txt");
-                        path->printAsMatrix(f3);
+                    std::ofstream f3("mazeRES.txt");
+                    path->printAsMatrix(f3);
 
                     solved = true;
                     break;
                 }else
                 {
-                      std::cout << "best cost current : " << bestCost_.value() << ", found : " <<  getCostPath(path->getStates())  << std::endl;
+                    //   std::cout << "best cost current : " << bestCost_.value() << ", found : " <<  getCostPath(path->getStates())  << std::endl;
                     continue;
                 }
 
             }
             else
             {
+                if(ptc && best_path->getStates().size() > 1)
+                {
+                    pdef_->addSolutionPath(best_path, false, 0.0, getName());
+                    solved = true;
+                    break;
+                }
                 // We didn't reach the goal, but if we were extending the start
                 // tree, then we can mark/improve the approximate path so far.
                 if (tgi.start)
