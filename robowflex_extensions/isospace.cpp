@@ -10,8 +10,8 @@ using namespace robowflex::darts;
 
 void StateSpace::StateSampler::sampleUniform(ompl::base::State *state)
 {
-/*
-   auto *st = state->as<StateSpace::StateType>();
+
+ /*  auto *st = state->as<StateSpace::StateType>();
     int index = rng_.uniformInt(0, groups_.size()-1);
 
     for(size_t i = 0; i < space_->getDimension() ; i++){
@@ -103,8 +103,8 @@ void StateSpace::interpolate(const ompl::base::State *from, const ompl::base::St
     const auto &rfrom = from->as<StateSpace::StateType>();
     const auto &rto = to->as<StateSpace::StateType>();
     auto *rstate = state->as<StateSpace::StateType>();
-/*
-    std::cout << "fromB: ";
+
+   /* std::cout << "fromB: ";
     for(int i = 0; i < dimension_; i++)
         std::cout << rfrom->values[i] << ", ";
     std::cout << std::endl;
@@ -114,8 +114,8 @@ void StateSpace::interpolate(const ompl::base::State *from, const ompl::base::St
     std::cout << std::endl;
 
     std::cout << "t : " << t <<std::endl;
-
 */
+
     if(t>= 1)
     {
         for (int i = 0; i < dimension_; i++) {

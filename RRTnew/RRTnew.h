@@ -184,7 +184,6 @@ namespace ompl
 
             /** \brief Flag indicating whether intermediate states are added to the built tree of motions */
             bool addIntermediateStates_;
-
             bool useIsolation_;
             /** \brief The random number generator */
             RNG rng_;
@@ -201,6 +200,7 @@ namespace ompl
             base::Cost bestCost_{std::numeric_limits<double>::quiet_NaN()};
             base::Cost incCost{0};
 
+            std::vector<ompl::base::State*> bestPath;
             std::string bestCostProgressProperty() const;
 
 
@@ -237,9 +237,7 @@ namespace ompl
             reConnect( base::State *from, std::vector<std::pair<ompl::base::State *, int>> queue_);
 
 
-            int getCostPath(std::vector<base::State *> states_);
-
-            int getCostPath(Motion *mot_);
+            int getCostPath(std::vector<base::State *> &states_);
 
             std::string numIterationsProperty() const
             {
@@ -251,14 +249,15 @@ namespace ompl
 
             void simplifyActionIntervals(std::vector<ompl::base::State *> &mainPath);
 
-            std::vector<base::State *> isolateStates(const base::State *rfrom, const base::State *rto);
+            void isolateStates(const base::State *rfrom, const base::State *rto,std::vector<ompl::base::State *> &iso_);
 
-            std::vector<base::State *> buildIsoStates(const std::vector<double> &from_, const std::vector<double> &to_,
-                                                      std::vector<int> &changed_index_groups);
+            void buildIsoStates(const std::vector<double> &from_, const std::vector<double> &to_,
+                                                      std::vector<int> &changed_index_groups,std::vector<ompl::base::State *> &iso_);
 
             void simplifyPath(std::vector<ompl::base::State *> &path);
 
             void checkRepairPath(std::vector<ompl::base::State *> &path_);
+
         };
     }
 }
