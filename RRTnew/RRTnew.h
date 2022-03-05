@@ -161,8 +161,8 @@ namespace ompl
             int rewireTree(Motion *startMotion, Motion *goalMotion);
 
 
-            std::vector<ompl::geometric::RRTnew::Motion *>
-            getMotionVectors(Motion * mot_);
+
+            void getMotionVectors(Motion * mot_,std::vector<Motion*> &vec);
 
             void
             getIntermediateState(const base::State *from, const base::State *to, base::State *state, int index_group);
@@ -205,7 +205,8 @@ namespace ompl
 
 
             std::vector<std::vector<int>> group_indices;
-            Motion *createNewMotion(const base::State *st, Motion *premotion);
+            void createNewMotion(const base::State *st, Motion *premotion,
+                                    ompl::geometric::RRTnew::Motion *newmotion);
 
             bool validMotionCheck(const bool start, const base::State *from_, const base::State *to_);
 
@@ -221,9 +222,10 @@ namespace ompl
 
 
 
-            std::vector<ompl::base::State * > reConnect(ompl::base::State *from,
-                                                        std::vector<std::pair<ompl::base::State *,int >> prio_,
-                                                        std::vector<std::pair<ompl::base::State *,int >> stack_);
+            void reConnect(ompl::base::State *from,
+                                                        std::vector<std::pair<ompl::base::State *,int >> &prio_,
+                                                        std::vector<std::pair<ompl::base::State *,int >> &stack_,
+                                                        std::vector<ompl::base::State *> &rewireResult);
 
 
             std::vector<int>
@@ -233,8 +235,9 @@ namespace ompl
 
             int rewire(std::vector<base::State *> &mainPath);
 
-            std::vector<base::State *>
-            reConnect( base::State *from, std::vector<std::pair<ompl::base::State *, int>> queue_);
+            void
+            reConnect( base::State *from, std::vector<std::pair<ompl::base::State *, int>> &queue_,
+                       std::vector<ompl::base::State *> &rewireResult);
 
 
             int getCostPath(std::vector<base::State *> &states_);

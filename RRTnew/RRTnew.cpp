@@ -215,16 +215,15 @@ void ompl::geometric::RRTnew::isolateStates(const base::State* rfrom, const base
 
 }
 
-ompl::geometric::RRTnew::Motion * ompl::geometric::RRTnew::createNewMotion(const base::State *st, ompl::geometric::RRTnew::Motion *premotion){
-    auto *motion = new Motion(si_);
-    si_->copyState(motion->state, st);
+void ompl::geometric::RRTnew::createNewMotion(const base::State *st, ompl::geometric::RRTnew::Motion *premotion,
+                                              ompl::geometric::RRTnew::Motion *newmotion){
+    //auto *motion = new Motion(si_);
+    si_->copyState(newmotion->state, st);
 
-    motion->parent = premotion;
-    motion->root = premotion->root;
-    motion->cost = opt_->motionCost(premotion->state,st);
-    motion->index_changed = getChangedIndex(premotion->state,st);
-
-    return motion;
+    newmotion->parent = premotion;
+    newmotion->root = premotion->root;
+    newmotion->cost = opt_->motionCost(premotion->state,st);
+    newmotion->index_changed = getChangedIndex(premotion->state,st);
 
 }
 
@@ -239,18 +238,16 @@ bool ompl::geometric::RRTnew::validMotionCheck(const bool start, const base::Sta
 
 }
 
-std::vector<ompl::geometric::RRTnew::Motion *> ompl::geometric::RRTnew::getMotionVectors(Motion * mot_)
+void ompl::geometric::RRTnew::getMotionVectors(Motion * mot_,std::vector<Motion *> &vec)
 {
     /* construct the motion vec */
     Motion *solution = mot_;
-    std::vector<Motion *> vec;
     while (solution != nullptr)
     {
         vec.push_back(solution);
         solution = solution->parent;
     }
 
-    return vec;
 }
 
 void ompl::geometric::RRTnew::getIntermediateState(const ompl::base::State *from,const ompl::base::State * to, ompl::base::State *state, int index_group)
@@ -309,10 +306,11 @@ std::vector<ompl::base::State * > ompl::geometric::RRTnew::getStates(std::vector
 }
 
 
-std::vector<ompl::base::State * > ompl::geometric::RRTnew::reConnect(ompl::base::State *from,
-                                                                     std::vector<std::pair<ompl::base::State *,int >> queue_)
+void ompl::geometric::RRTnew::reConnect(ompl::base::State *from,
+                                        std::vector<std::pair<ompl::base::State *,int >> &queue_,
+                                        std::vector<ompl::base::State * > &rewireResult )
 {
-    std::vector<ompl::base::State * > merge_;
+    //std::vector<ompl::base::State * > merge_;
 
     for(size_t i = 0; i < queue_.size(); i++)
     {
@@ -321,45 +319,48 @@ std::vector<ompl::base::State * > ompl::geometric::RRTnew::reConnect(ompl::base:
         if(!si_->checkMotion(from,newEdge))
         {
             si_->freeState(newEdge);
-            if(merge_.size()>1)
+            if(rewireResult.size()>1)
             {
-                for(auto &st : merge_)
+                for(auto &st : rewireResult)
                     si_->freeState(st);
-                merge_.clear();
+                rewireResult.clear();
             }
-            std::vector<ompl::base::State *>().swap(merge_); // free mem
-
-            return {};
+            std::vector<ompl::base::State *>().swap(rewireResult); // free mem
+            return;
         }
 
-        merge_.push_back(newEdge);
+        rewireResult.push_back(newEdge);
         from = newEdge;
     }
-    return merge_;
+
 }
 
 
-std::vector<ompl::base::State * > ompl::geometric::RRTnew::reConnect(ompl::base::State *from,
-                                                                     std::vector<std::pair<ompl::base::State *,int >> prio_,
-                                                                     std::vector<std::pair<ompl::base::State *,int >> stack_)
+void ompl::geometric::RRTnew::reConnect(ompl::base::State *from, std::vector<std::pair<ompl::base::State *,int >> &prio_,
+                                                                     std::vector<std::pair<ompl::base::State *,int >> &stack_,
+                                                                     std::vector<ompl::base::State *> &rewireResult)
 {
 
-    std::vector<ompl::base::State * > mergedStates;
-    std::vector<ompl::base::State * > queuedStates;
-
-    mergedStates = reConnect(from,prio_);
-    if(!mergedStates.empty())
-        queuedStates = reConnect(mergedStates.back(),stack_);
-    if(mergedStates.empty() || queuedStates.empty())
+    reConnect(from,prio_,rewireResult);
+    if(!rewireResult.empty())
+        reConnect(rewireResult.back(),stack_,rewireResult);
+    if(rewireResult.empty())
     {
-        mergedStates.clear();
-        queuedStates.clear();
-        return {};
+        rewireResult.clear();
+    }else
+    {
+        for(auto &a : prio_)
+        {
+            si_->freeState(a.first);
+        }
+
+        for(auto &a : stack_)
+        {
+            si_->freeState(a.first);
+        }
+        prio_.clear();
+        stack_.clear();
     }
-
-    mergedStates.insert(mergedStates.end(),queuedStates.begin(),queuedStates.end());
-    return mergedStates;
-
 }
 
 
@@ -427,18 +428,11 @@ int ompl::geometric::RRTnew::rewire(std::vector<ompl::base::State *> &mainPath) 
             std::vector<ompl::base::State * > rewiredConnection;
 
             if(!mergeIndices.empty() && !queueIndices.empty())
-                rewiredConnection = reConnect(fromState,mergeIndices,queueIndices);
+                reConnect(fromState,mergeIndices,queueIndices,rewiredConnection);
             else{
-
-                //  toID = toID+1;
                 if(toID>= mainPath.size()-1)
                     return rewireCount;
                 prev_index = getChangedIndex(mainPath.at(toID-1),mainPath.at(toID));
-
-                //prev_index = getChangedIndex(mainPath.at(fromID),mainPath.at(toID));
-                //continue;
-                // continue;
-                // todo check if this is still correct (should be)
             }
 
             if(rewiredConnection.empty()){ // no rewiring possible because of invalid motion but no problem, just start with next the next state and go on
@@ -468,7 +462,7 @@ int ompl::geometric::RRTnew::rewire(std::vector<ompl::base::State *> &mainPath) 
       //      std::cout <<"toID : " << toID << ", rewSize : " << rewiredConnection.size() << " path size: " <<mainPath.size() << std::endl;
             //  std::cout<<"SUBPATH----END" << std::endl;
             //  std::cout<<"path sub size: " << rewiredConnection.size() << ", fromID : " << fromID << ", toID : " << toID << std::endl;
-            fromID = fromID+mergeIndices.size(); // check??
+            fromID = fromID+mergeIndices.size(); //
             if(toID>= mainPath.size()-1)
                 return rewireCount;
             prev_index = getChangedIndex(mainPath.at(fromID),mainPath.at(fromID+1));
@@ -520,6 +514,10 @@ void ompl::geometric::RRTnew::simplifyActionIntervals(std::vector<ompl::base::St
             transitions.push_back(i);
 
             prev_index = getChangedIndex(mainPath.at(i),mainPath.at(i+1));
+        }else
+        {
+            si_->freeState(mainPath.at(i));
+            //mainPath.erase(mainPath.begin()+i);
         }
     }
     std::vector<ompl::base::State *> simplifiedPath;
@@ -544,6 +542,8 @@ void ompl::geometric::RRTnew::simplifyActionIntervals(std::vector<ompl::base::St
         }
     }
     mainPath.clear();
+
+    std::vector<ompl::base::State *>().swap(mainPath);
     mainPath = simplifiedPath;
 
 
@@ -613,11 +613,18 @@ ompl::geometric::RRTnew::GrowState ompl::geometric::RRTnew::growTree(TreeData &t
                     dstates.clear();
                     std::vector<ompl::base::State *>().swap(dstates); // free mem
 
+                    for(auto &m: stack_motion)
+                    {
+                        si_->freeState(m->state);
+                    }
+                    stack_motion.clear();
+
                     return TRAPPED;
                 }
 
 
-                auto *motion = createNewMotion(st, premotion);
+                auto *motion = new Motion(si_);
+                createNewMotion(st, premotion,motion);
                 stack_motion.push_back(motion);
 
                 premotion = motion;
@@ -637,7 +644,8 @@ ompl::geometric::RRTnew::GrowState ompl::geometric::RRTnew::growTree(TreeData &t
     }
 
     incCost = opt_->combineCosts(incCost,opt_->motionCost(nmotion->state,dstate )); // todo
-    auto * motion = createNewMotion(dstate,nmotion);
+    auto * motion = new Motion(si_);
+    createNewMotion(dstate,nmotion,motion);
     tree->add(motion);
     tgi.xmotion = motion;
 
@@ -666,8 +674,8 @@ void ompl::geometric::RRTnew::simplifyPath(std::vector<ompl::base::State *> &pat
             std::vector<ompl::base::State *>().swap(path); // free mem
             path = path_temp;
 
-            const base::StateSpace *space(si_->getStateSpace().get());
-            std::vector<double> reals;
+         //   const base::StateSpace *space(si_->getStateSpace().get());
+         //   std::vector<double> reals;
            /* std::ofstream out("mazeBF.txt");
 
             for (auto state : path)
@@ -699,7 +707,7 @@ void ompl::geometric::RRTnew::checkRepairPath(std::vector<ompl::base::State *> &
     for(size_t i = 0; i < path_.size()-1; i++)
     {
         if(si_->equalStates(path_.at(i),path_.at(i+1))){
-          //  std::cout<<"----------------------YES EQUAL STATES MAYBE CONNECTION POINT" << std::endl;
+            std::cout<<"----------------------YES EQUAL STATES (shouldnt happen), REPAIR -> DELETING" << std::endl;
             path_.erase(path_.begin()+i);
         }
 
@@ -868,8 +876,10 @@ ompl::base::PlannerStatus ompl::geometric::RRTnew::solve(const base::PlannerTerm
 
                 connectionPoint_ = std::make_pair(startMotion->state, goalMotion->state);
 
-                std::vector<Motion *> mpath1 = getMotionVectors(startMotion);
-                std::vector<Motion *> mpath2 = getMotionVectors(goalMotion);
+                std::vector<Motion *> mpath1;
+                getMotionVectors(startMotion,mpath1);
+                std::vector<Motion *> mpath2;
+                getMotionVectors(goalMotion,mpath2);
 
 
                 auto path(std::make_shared<PathGeometric>(si_));
@@ -885,7 +895,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTnew::solve(const base::PlannerTerm
           /*      std::ofstream fs("mazeREP.txt");
                 path->printAsMatrix(fs);
 */
-               // checkRepairPath(path->getStates());
+                checkRepairPath(path->getStates());
 
   /*              std::ofstream fsx("mazeBF.txt");
                 path->printAsMatrix(fsx);
@@ -899,7 +909,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTnew::solve(const base::PlannerTerm
 
                 if(getCostPath(path->getStates()) < bestCost_.value())
                 {
-                    std::cout << "we found better path :" << getCostPath(path->getStates()) << ", earlier : " << bestCost_.value() << std::endl;
+            //        std::cout << "we found better path :" << getCostPath(path->getStates()) << ", earlier : " << bestCost_.value() << std::endl;
                     std::vector<ompl::base::State *>().swap(best_path->getStates()); // free mem
 
 
@@ -929,7 +939,7 @@ ompl::base::PlannerStatus ompl::geometric::RRTnew::solve(const base::PlannerTerm
             {
                 if(ptc && best_path->getStates().size() > 1)
                 {
-                    std::cout<<"here"<<std::endl;
+                //    std::cout<<"here"<<std::endl;
                     pdef_->addSolutionPath(best_path, false, 0.0, getName());
                     solved = true;
                     break;

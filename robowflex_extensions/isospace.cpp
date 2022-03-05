@@ -8,33 +8,6 @@ using namespace robowflex::darts;
 
 
 
-void StateSpace::StateSampler::sampleUniform(ompl::base::State *state)
-{
-
- /*  auto *st = state->as<StateSpace::StateType>();
-    int index = rng_.uniformInt(0, groups_.size()-1);
-
-    for(size_t i = 0; i < space_->getDimension() ; i++){
-        if(abs(st->values[i]) < 1e-20 || abs(st->values[i]) > 1e20 || isnan(st->values[i])) {
-            st->values[i] = 0.0;
-        }
-    }
-
-    for(const auto &i : groups_.at(index)){
-        st->values[i] = rng_.uniformReal(joints_.at(i)->getLowerLimits()(0),
-                                         joints_.at(i)->getUpperLimits()(0));
-    }
-*/
-
-    auto *as = state->as<StateType>();
-
-    for (const auto &joint : joints_)
-        joint->sample(joint->getSpaceVars(as->data));
-
-}
-
-
-
 double StateSpace::distance(double v1, double v2) const{
 
    //double d =  sqrt((v1-v2)*(v1-v2)); // EUCLIDEAN
@@ -140,8 +113,6 @@ void StateSpace::interpolate(const ompl::base::State *from, const ompl::base::St
         double s = 0.0;
         if(!abs(distances.at(index)) < 1e-10 ){
             s = (t-d_interpolated)/distances.at(index);
-        }else{
-       //     std::cout<<"hmmm"<<std::endl;
         }
 
         for(auto const &index_in_group : grouped_indices.at(index)){
