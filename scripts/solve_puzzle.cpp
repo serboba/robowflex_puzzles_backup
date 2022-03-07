@@ -53,7 +53,6 @@
 #include <robowflex_dart/IsoManipulationOptimization.h>
 #include <robowflex_dart/point_collector.h>
 #include <robowflex_dart/urdf_read.h>
-#include <robowflex_dart/IsoManipulationStateSpace.h>
 #include <robowflex_dart/PathGeometric.h>
 
 
@@ -66,10 +65,11 @@ int main(int argc, char **argv)
     // Startup ROS
     ROS ros(argc, argv);
 
+    std::string env_name = "maze2";
 
-    auto maze_dart = darts::loadMoveItRobot("maze1",
-                                            "/home/serboba/rb_ws/devel/lib/robowflex_dart/envs/maze1.urdf",
-                                            "/home/serboba/rb_ws/devel/lib/robowflex_dart/envs/maze1.srdf");
+    auto maze_dart = darts::loadMoveItRobot(env_name,
+                                            "/home/serboba/rb_ws/devel/lib/robowflex_dart/envs/" + env_name + ".urdf",
+                                            "/home/serboba/rb_ws/devel/lib/robowflex_dart/envs/" + env_name + ".srdf");
 
 
     auto maze_name = maze_dart->getName();
@@ -85,12 +85,15 @@ int main(int argc, char **argv)
         darts::PlanBuilder builder(world);
 
 
-        URDF_IO input_("maze1");
+        URDF_IO input_(env_name);
 
         for(std::string group : input_.group_names)
             builder.addGroup(maze_name,group);
         // ADD ALL GROUPS THAT ARE NEEDED
 
+
+        std::vector<int> test1 = {1,2,3,4,5,6,7,8,9,10};
+        test1.erase(test1.begin()+2,test1.begin()+4);
 
         builder.setGroupIndices(input_.group_indices);
         builder.setStartConfigurationFromWorld();
@@ -109,11 +112,13 @@ int main(int argc, char **argv)
 
         builder.ss->setOptimizationObjective(std::make_shared<ompl::base::IsoManipulationOptimization>(builder.info,input_.group_indices));
         // auto planner = std::make_shared<ompl::geometric::RRTnew>(builder.info,input_.group_indices,false,false);
-        auto planner = std::make_shared<ompl::geometric::RRTnew>(builder.info,input_.group_indices, false,true);
-       // auto planner = std::make_shared<ompl::geometric::BITstar>(builder.info);
-
-        planner->setRange(0.1);
-        builder.space->setLongestValidSegmentFraction(0.01);
+         auto planner = std::make_shared<ompl::geometric::RRTnew>(builder.info,input_.group_indices,false,true);
+      //  auto planner = std::make_shared<ompl::geometric::RRTstar>(builder.info);
+      //  auto planner = std::make_shared<ompl::geometric::BITstar>(builder.info);
+       // auto planner = std::make_shared<ompl::geometric::RRTConnect>(builder.info,false);
+        //planner->setRange(0.1);
+       // builder.space->setLongestValidSegmentFraction(0.1);
+       // builder.space->setValidSegmentCountFactor(2);
 
         builder.ss->setPlanner(planner);
         builder.setup();
@@ -123,7 +128,7 @@ int main(int argc, char **argv)
         builder.rspace->sanityChecks();
 
         goal->startSampling();
-        ompl::base::PlannerStatus solved = builder.ss->solve(180);
+        ompl::base::PlannerStatus solved = builder.ss->solve(60);
         goal->stopSampling();
 
 
@@ -139,7 +144,7 @@ int main(int argc, char **argv)
             std::ofstream fs("maze3doors.txt");
             path.printAsMatrix(fs);
 
-           window.animatePath(builder, path,2,10);
+           window.animatePath(builder, path,2,1);
 
 
        }

@@ -233,7 +233,7 @@ namespace ompl
 
             void getChangedIndices(const base::State *rfrom, const base::State *rto, std::vector<int> &indices_) const;
 
-            int rewire(std::vector<base::State *> &mainPath);
+            int pathDefrag(std::vector<base::State *> &mainPath);
 
             void
             reConnect( base::State *from, std::vector<std::pair<ompl::base::State *, int>> &queue_,
@@ -261,6 +261,7 @@ namespace ompl
 
             void checkRepairPath(std::vector<ompl::base::State *> &path_);
 
+            void constructSolutionPath(PathGeometric &path, Motion *startMotion, Motion *goalMotion);
         };
     }
 }
