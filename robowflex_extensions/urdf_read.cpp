@@ -3,6 +3,7 @@
 //
 
 #include <robowflex_dart/urdf_read.h>
+#include <robowflex_dart/conversion_functions.h>
 
 
 void create_txt_file(std::string filename){
@@ -73,28 +74,22 @@ URDF_IO::URDF_IO(std::string filename) {
                     std::getline(ss2, num, ' ');
                     goal_pose.push_back(stod(num));
                 }
+                std::vector<double> rotation_;
+                for(int i = 0; i<3 ; i++){
+                    std::getline(ss2,num,' ');
+                    rotation_.push_back(stod(num));
+                }
 
-                std::vector<double> orn = {1.0,0.0,0.0,0.0};
+
+                std::vector<double> orn = quaternion_matrix_to_stdvec(rpy_to_quaternion(rotation_[0],rotation_[1],rotation_[2]));
+                // std::vector<double> orn = {0.7071055,0.7071081, 0, 0};
+                //std::vector<double> orn = {1.0,0.0,0.0,0.0};
                 goal_pose.insert(goal_pose.end(),orn.begin(),orn.end());
             }
         }
     }
 
     group_indices = gr_indices;
-    /*
-    // gr indices to index groups
-    for(auto group_ : gr_indices){
-        if(group_.at(0) == 1)
-            continue;
-        else{
-            std::vector<int> temp;
-            for (int j = group_.at(1); j < (group_.at(0)+group_.at(1)) ; j++) {
-                temp.push_back(j);
-            }
-            group_indices.push_back(temp);
-        }
-    }
-     */
 
 }
 

@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<robot name="maze1">
+
+
+      <group name="cubegr_0">
+     <joint name="cube_joint" />
+     <joint name="cube_joint2" />
+     </group> 
+    
+    <group name="doorgr_1">
+     <joint name="door_joint1" />
+     </group>
+
+
+    <group name="doorgr_2">
+     <joint name="door_joint2" />
+     </group>  
+     
+     
+     <group name="doorgr_3">
+     <joint name="door_joint3" />
+     </group>  
+
+
+
+
+    <disable_collisions link1="base_link" link2="door1" reason="default" />
+    <disable_collisions link1="base_link" link2="table" reason="default" />
+    <disable_collisions link1="base_link" link2="door1" reason="default" />
+    <disable_collisions link1="base_link" link2="door2" reason="default" />
+    <disable_collisions link1="base_link" link2="cube1" reason="default" />
+
+
+
+    <disable_collisions link1="table" link2="door3" reason="default" />
+    <disable_collisions link1="table" link2="door2" reason="default" />
+    <disable_collisions link1="table" link2="door1" reason="default" />
+
+    <disable_collisions link1="cube_x" link2="door3" reason="default" />
+    <disable_collisions link1="cube_x" link2="door2" reason="default" />
+    <disable_collisions link1="cube_x" link2="door1" reason="default" />
+
+    <disable_collisions link1="cube_x" link2="cube2" reason="default" />
+        <disable_collisions link1="cube1" link2="cube2" reason="default" />
+
+    <disable_collisions link1="door3" link2="cube2" reason="default" />
+    <disable_collisions link1="table" link2="cube2" reason="default" />
+    <disable_collisions link1="base_link" link2="cube2" reason="default" />
+
+</robot>

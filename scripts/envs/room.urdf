@@ -1,0 +1,276 @@
+<?xml version="1.0"?>
+  <robot name="escape_scene">
+    <link name="base_link"/>
+
+    <link name="room">
+      <visual>
+        <geometry>
+          <mesh filename="file:///home/serboba/Desktop/blenderFLEX/room.dae" scale = " 0.4 0.4 0.3"/>
+        </geometry>
+        <origin rpy="0 0 0" xyz="0 0 0" />
+      <material name = "">
+        <color rgba="0.94901960784 0.94901960784 0.94901960784 1"/>
+      </material>
+      </visual>
+
+      <collision>
+        <geometry>
+          <mesh filename="file:///home/serboba/Desktop/blenderFLEX/room.dae" scale = " 0.4 0.4 0.3"/>
+        </geometry>
+        <origin rpy="0 0 0" xyz="0 0 0" />       
+       </collision>
+    </link>
+
+
+        <link name="shelf">
+      <visual>
+        <geometry>
+          <mesh filename="file:///home/serboba/Desktop/blenderFLEX/shelf.dae" scale = "0.042 0.05 0.04"/>
+        </geometry>
+        <origin rpy="0 0 0" xyz="0 0 0" />
+      
+      <material name = "">
+        <color rgba="0.729411 0.549019 0.388235 1"/>
+      </material>
+
+      </visual>
+      <collision>
+        <geometry>
+          <mesh filename="file:///home/serboba/Desktop/blenderFLEX/shelf.dae" scale = "0.042 0.05 0.04"/>
+        </geometry>
+        <origin rpy="0 0 0" xyz="0 0 0" />       
+       </collision>
+    </link>
+
+
+    <link name="desk">
+      <visual>
+        <geometry>
+          <mesh filename="file:///home/serboba/Desktop/blenderFLEX/desk2.dae" scale = "0.01 0.01 0.020"/>
+        </geometry>
+        <origin rpy="0 0 0" xyz="0 0 0" />
+      
+    <material name = "">
+        <color rgba="0.729411 0.549019 0.388235 1"/>
+      </material>
+
+      </visual>
+      <collision>
+        <geometry>
+          <mesh filename="file:///home/serboba/Desktop/blenderFLEX/desk2.dae" scale = "0.01 0.01 0.020"/>
+        </geometry>
+        <origin rpy="0 0 0" xyz="0 0 0" />       
+       </collision>
+    </link>
+
+
+
+    <link name="sofa">
+      <visual>
+        <geometry>
+          <mesh filename="file:///home/serboba/Desktop/blenderFLEX/sofa.dae" scale = "0.7 0.7 1"/>
+        </geometry>
+        <origin rpy="0 0 0" xyz="0 0 0" />
+      
+      <material name = "">
+        <color rgba="0.70196 0.8 1 1"/>
+      </material>
+
+      </visual>
+      <collision>
+        <geometry>
+          <mesh filename="file:///home/serboba/Desktop/blenderFLEX/sofa.dae" scale = "0.7 0.7 1"/>
+        </geometry>
+        <origin rpy="0 0 0" xyz="0 0 0" />       
+       </collision>
+    </link>
+
+    <link name="cube1">
+      <visual>
+        <geometry>
+          <box size="0.5 0.5 0.75"/>
+        </geometry>
+        <origin rpy="0 0 0" xyz="0 0 0" />
+          <material name = "">
+          <color rgba="0.541176 0.156862 0.156862 1.0"/>
+      </material>
+      </visual>
+      <collision>
+        <geometry>
+          <box size="0.5 0.5 0.75"/>
+        </geometry>
+        <origin rpy="0 0 0" xyz="0 0 0" />      
+       </collision>
+    </link>
+
+
+    <link name="cube2">
+      <visual>
+        <geometry>
+          <box size="0.5 0.5 0.75"/>
+        </geometry>
+        <origin rpy="0 0 0" xyz="0 0 0" />
+       <material name = "">
+          <color rgba="0.541176 0.156862 0.156862 1.0"/>
+      </material>
+      </visual>
+      <collision>
+        <geometry>
+          <box size="0.5 0.5 0.75"/>
+        </geometry>
+        <origin rpy="0 0 0" xyz="0 0 0" />      
+       </collision>
+    </link>
+
+     <link name="front_door">
+      <visual>
+        <geometry>
+          <box size="0.1 0.7 1.1"/>
+        </geometry>
+        <origin rpy="0 0 0" xyz="0.0 0.35 0" />
+        <material name = "">
+          <color rgba="0.349019 0.470588 0.650980 1.0"/>
+      </material>
+      </visual>
+      <collision>
+        <geometry>
+          <box size="0.1 0.7 1.1"/>
+        </geometry>
+        <origin rpy="0 0 0" xyz="0.0 0.35 0" />     
+       </collision>
+    </link>
+
+
+     <link name="lock_part">
+      <visual>
+        <geometry>
+          <cylinder radius="0.03" length ="0.2"/>
+        </geometry>
+             <material name = "">
+          <color rgba="1 1 1 1.0"/>
+      </material>
+      </visual>
+    </link>
+
+
+     <link name="door_lock">
+      <visual>
+        <geometry>
+          <box size="0.03 0.45 0.146"/>
+        </geometry>
+      <origin rpy="0 0 0" xyz="0 -0.15 0" />
+             <material name = "">
+          <color rgba="0.6901 0.2509 0.2509 1.0"/>
+      </material>
+      </visual>
+      <collision>       
+        <geometry>
+          <box size="0.03 0.45 0.146"/>
+        </geometry>
+      <origin rpy="0 0 0" xyz="0 -0.15 0" />
+       </collision>
+    </link>
+
+
+<link name ="cube1_y_axis"/>
+<link name ="cube2_y_axis"/>
+
+
+  <joint name="cube1_joint" type="prismatic">
+      <origin rpy="0 0 0" xyz="0 0 0" />
+      <parent link="base_link" />
+      <child link="cube1_y_axis" />
+      <axis xyz="0 1 0" />
+      <limit lower="-1.10" upper="0.96" effort="0.05" velocity="1.57"/>
+  </joint>
+
+
+  <joint name="cube1_joint2" type="prismatic">
+      <origin rpy="0 0 0" xyz="0.95 0.1 0.375" />
+      <parent link="cube1_y_axis" />
+      <child link="cube1" />
+      <axis xyz="1 0 0" />
+      <limit lower="-1.5" upper="0.05" effort="0.05" velocity="1.57"/>
+  </joint>
+
+
+
+  <joint name="cube2_joint" type="prismatic">
+      <origin rpy="0 0 0" xyz="0 0 0" />
+      <parent link="base_link" />
+      <child link="cube2_y_axis" />
+      <axis xyz="0 1 0" />
+      <limit lower="-0.1" upper="1.90" effort="0.05" velocity="1.57"/>
+  </joint>
+
+
+  <joint name="cube2_joint2" type="prismatic">
+      <origin rpy="0 0 0" xyz="0.95 -0.9 0.375" />
+      <parent link="cube2_y_axis" />
+      <child link="cube2" />
+      <axis xyz="1 0 0" />
+      <limit lower="-1.5" upper="0.05" effort="0.05" velocity="1.57"/>
+  </joint>
+
+
+  <joint name="front_door_joint" type="revolute">
+      <origin rpy="0 0 0" xyz="1.30 -0.4 0.55"/>
+      <parent link="base_link"/>
+      <child link="front_door"/>
+      <axis xyz="0 0 1"/>
+      <limit lower="0" upper="1.57" effort="0.05" velocity="1.57"/>
+  </joint>
+
+
+
+ <joint name="door_lock_joint" type="revolute">
+      <origin rpy="0 0 0" xyz="1.22 0.45 0.90"/>
+      <parent link="base_link"/>
+      <child link="door_lock"/>
+      <axis xyz="1 0 0"/>
+      <limit lower="0" upper="1.57" effort="0.05" velocity="1.57"/>
+  </joint>
+
+
+
+  <joint name="desk_joint" type="fixed">
+      <origin rpy="0 0 1.57" xyz="0.30 0.6 0.0"/>
+      <parent link="base_link"/>
+      <child link="desk"/>
+      <axis xyz="0 0 1"/>
+  </joint>
+
+
+<joint name="room_j" type="fixed">
+    <origin rpy="0 0 -1.57" xyz="0 0 0.0" />
+    <parent link="base_link" />
+    <child link="room" />
+    <axis xyz="0 1 0" />
+  </joint>
+
+<joint name="shelf_j" type="fixed">
+    <origin rpy="0 0 -1.57" xyz="1.1 0.9 0.0" />
+    <parent link="base_link" />
+    <child link="shelf" />
+    <axis xyz="0 1 0" />
+  </joint>
+
+
+  <joint name="lock_part_j" type="fixed">
+    <origin rpy="0 1.57 0" xyz="1.3 0.45 0.9"/>
+      <parent link="base_link"/>
+      <child link="lock_part"/>
+      <axis xyz="0.0 0.0 1"/>
+  </joint>
+
+<joint name="sofa_joint" type="fixed">
+        <origin rpy="0 0 1.57" xyz="-0.90 -0.2 0.0"/>
+        <parent link="base_link"/>
+        <child link="sofa"/>
+        <axis xyz="0 0 1"/>
+        <limit lower="-1.57" upper="1.57" effort="0.05" velocity="1.57"/>
+    </joint>
+
+
+
+</robot>

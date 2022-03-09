@@ -1,0 +1,7 @@
+cubegr_0,2,0
+doorgr_1,1,2
+doorgr_2,1,3
+doorgr_3,1,4
+doorgr_4,1,5
+-
+0.75 -0.73 1.3

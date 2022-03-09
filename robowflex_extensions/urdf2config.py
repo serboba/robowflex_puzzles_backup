@@ -9,7 +9,8 @@ def parse_urdf_file(root):
     for group in root.findall('joint'):
         joint_name = group.get('name')
         if(joint_name=="goal"):
-            goal_pos = group.find("origin").get("xyz")
+            goal_pos = group.find("origin").get("xyz") +" "+ group.find("origin").get("rpy")
+            print(goal_pos)
             return goal_pos
 
     return -1
@@ -52,5 +53,12 @@ def write_into_txt(file,name):
 
 if len(sys.argv) == 1:
     sys.exit("NOT ENOUGH ARGS")
+    
 translate_into_txt(str(sys.argv[1]))
+# def main():
+#     translate_into_txt("simple_sliders")
+#
+# if __name__ == '__main__':
+#     main()
+
 

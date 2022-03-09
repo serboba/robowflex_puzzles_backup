@@ -100,6 +100,11 @@ Vector3d matrix_to_vec(MatrixXd mat){
     return vec;
 }
 
+std::vector<double> quaternion_matrix_to_stdvec(MatrixXd mat)
+{
+    std::vector<double> vec = {mat(0),mat(1),mat(2),mat(3)};
+    return vec;
+}
 
 MatrixXd stdvec_to_quat_matrix(std::vector<MatrixXd> quaternion_vec){
     MatrixXd mat(6,4);

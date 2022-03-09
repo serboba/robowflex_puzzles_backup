@@ -1,4 +1,0 @@
-cube1_joint,cube1_gr1
-cube2_joint,cube_gr2
-door_lock_joint,door_lock_j
-front_door_joint,front_door_j

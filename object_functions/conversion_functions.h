@@ -47,6 +47,9 @@ MatrixXd vec_to_matrix(Vector3d vec);
 
 MatrixXd stdvec_to_quat_matrix(std::vector<MatrixXd> quaternion_vec);
 
+
+std::vector<double> quaternion_matrix_to_stdvec(MatrixXd mat);
+
 Vector3d matrix_to_vec(MatrixXd mat);
 #endif //ROBOWFLEX_DART_CONVERSION_FUNCTIONS_H
 

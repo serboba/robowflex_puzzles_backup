@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<!-- created with Phobos 1.0.1 "Capricious Choutengan" -->
+  <robot name="simple_sliders">
+
+    <group name="linkgr_0">
+      <joint name="link_0"/>
+    </group>
+
+
+    <group name="linkgr_1">
+      <joint name="link_1"/>
+    </group>
+
+  
+</robot>
