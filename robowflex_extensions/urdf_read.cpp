@@ -44,7 +44,6 @@ URDF_IO::URDF_IO(std::string filename) {
 
     if (inFile.is_open()) {
         std::string line;
-        int i = 0;
         while (std::getline(inFile, line)) {
             std::stringstream ss(line);
             if (line.compare("-") != 0) {
@@ -79,11 +78,8 @@ URDF_IO::URDF_IO(std::string filename) {
                     std::getline(ss2,num,' ');
                     rotation_.push_back(stod(num));
                 }
-
-
+                
                 std::vector<double> orn = quaternion_matrix_to_stdvec(rpy_to_quaternion(rotation_[0],rotation_[1],rotation_[2]));
-                // std::vector<double> orn = {0.7071055,0.7071081, 0, 0};
-                //std::vector<double> orn = {1.0,0.0,0.0,0.0};
                 goal_pose.insert(goal_pose.end(),orn.begin(),orn.end());
             }
         }

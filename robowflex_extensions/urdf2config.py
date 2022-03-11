@@ -53,12 +53,11 @@ def write_into_txt(file,name):
 
 if len(sys.argv) == 1:
     sys.exit("NOT ENOUGH ARGS")
-    
+
 translate_into_txt(str(sys.argv[1]))
 # def main():
 #     translate_into_txt("simple_sliders")
 #
 # if __name__ == '__main__':
 #     main()
-
 

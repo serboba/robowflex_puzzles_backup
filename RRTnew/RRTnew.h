@@ -9,7 +9,7 @@
 #include <ompl/geometric/planners/PlannerIncludes.h>
 #include <robowflex_dart/IsoManipulationOptimization.h>
 
-#include <robowflex_dart/space.h>
+//#include <robowflex_dart/space.h>
 #include <fstream>
 namespace ompl
 {
@@ -158,10 +158,6 @@ namespace ompl
             GrowState growTree(TreeData &tree, TreeGrowingInfo &tgi, Motion *rmotion);
 
 
-            int rewireTree(Motion *startMotion, Motion *goalMotion);
-
-
-
             void getMotionVectors(Motion * mot_,std::vector<Motion*> &vec);
 
             void
@@ -217,10 +213,7 @@ namespace ompl
             int getChangedIndex(const base::State *from, const base::State *to);
 
             std::vector<base::State *> getStates(std::vector<Motion *>);
-
-            //  std::vector<base::State *> rewire(std::vector<base::State *> mainStates);
-
-
+            
 
             void reConnect(ompl::base::State *from,
                                                         std::vector<std::pair<ompl::base::State *,int >> &prio_,
@@ -262,6 +255,8 @@ namespace ompl
             void checkRepairPath(std::vector<ompl::base::State *> &path_);
 
             void constructSolutionPath(PathGeometric &path, Motion *startMotion, Motion *goalMotion);
+
+            void shortcutPath(std::vector<ompl::base::State *> &mainPath);
         };
     }
 }

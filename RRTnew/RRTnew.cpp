@@ -90,7 +90,6 @@ void ompl::geometric::RRTnew::setup()
 void ompl::geometric::RRTnew::freeMemory()
 {
     std::vector<Motion *> motions;
-    int counter = 0;
     if (tStart_)
     {
         tStart_->list(motions);
@@ -310,15 +309,24 @@ void ompl::geometric::RRTnew::reConnect(ompl::base::State *from,
                                         std::vector<std::pair<ompl::base::State *,int >> &queue_,
                                         std::vector<ompl::base::State * > &rewireResult )
 {
-    //std::vector<ompl::base::State * > merge_;
-
     for(size_t i = 0; i < queue_.size(); i++)
     {
         ompl::base::State * newEdge = si_->allocState();
         getIntermediateState(from,queue_.at(i).first,newEdge,queue_.at(i).second);
         if(!si_->checkMotion(from,newEdge))
         {
+            /*std::cout<<"CUTTT"<<std::endl;
+            si_->printState(from);
+            si_->printState(queue_.at(i).first);
+            si_->printState(newEdge);
             si_->freeState(newEdge);
+            std::cout<<"-CUTTT"<<std::endl;
+            */
+            /*
+            std::cout << si_->isValid(from) << ", ";
+            std::cout << si_->isValid(queue_.at(i).first) << ", ";
+            std::cout << si_->isValid(newEdge) << ", i : "<< i << std::endl;
+            */
             if(rewireResult.size()>1)
             {
                 for(auto &st : rewireResult)
@@ -486,7 +494,7 @@ int ompl::geometric::RRTnew::getCostPath(std::vector<ompl::base::State * > &stat
 
     int prev_index = getChangedIndex(states_.at(0),states_.at(1));
     int cost = 1;
-    for (int i = 1; i < states_.size()-1 ; ++i) {
+    for (size_t i = 1; i < states_.size()-1 ; ++i) {
         //  si_->printState(states_.at(i));
         //  si_->printState(states_.at(i+1));
 
@@ -501,6 +509,54 @@ int ompl::geometric::RRTnew::getCostPath(std::vector<ompl::base::State * > &stat
     return cost;
 }
 
+void ompl::geometric::RRTnew::shortcutPath(std::vector<ompl::base::State*> &mainPath)
+{
+    std::vector<ompl::base::State *> result_;
+    std::vector<std::pair<ompl::base::State *,int>> merge1;
+    std::vector<std::pair<ompl::base::State *,int>> merge2;
+    std::vector<std::pair<ompl::base::State *,int>> merge3;
+
+    bool shortcut = true;
+    while(shortcut)
+    {
+
+        for(int i = 1; i < mainPath.size(); i++)
+        {
+            ompl::base::State *subFrom = mainPath.at(i-1);
+            ompl::base::State  *subTo = mainPath.at(i);
+
+            if(getChangedIndex(mainPath.at(i-1),mainPath.at(i)) == 0)
+                merge1.push_back(std::make_pair(subTo, getChangedIndex(subFrom,subTo)));
+            else
+                merge2.push_back(std::make_pair(subTo, getChangedIndex(subFrom,subTo)));
+
+        }
+
+        merge3.push_back(merge1.back());
+
+        ompl::base::State * temp_from = si_->getStateSpace()->allocState();
+        std::vector<double> tx= {0.0,0.0,0.0,0.0,0.0};
+        si_->getStateSpace()->copyFromReals(temp_from,tx);
+        //std::cout<<"START"<<std::endl;
+        reConnect(temp_from,merge2,merge3,result_);
+
+        if(!result_.empty())
+        {
+            shortcut = false;
+          //  std::cout<<"success, path size : "<< result_.size() << ", main size : " << mainPath.size()<< std::endl;
+
+            result_.insert(result_.begin(),mainPath.at(0));
+
+            mainPath = result_;
+            break;
+        }else
+        {
+            shortcut = false;
+            break;
+        }
+    }
+
+}
 
 void ompl::geometric::RRTnew::simplifyActionIntervals(std::vector<ompl::base::State*> &mainPath) // finds intervals of same action index, builds shortcuts
 {
@@ -542,7 +598,6 @@ void ompl::geometric::RRTnew::simplifyActionIntervals(std::vector<ompl::base::St
         }
     }
     mainPath.clear();
-
     std::vector<ompl::base::State *>().swap(mainPath);
     mainPath = simplifiedPath;
 
@@ -677,6 +732,8 @@ void ompl::geometric::RRTnew::simplifyPath(std::vector<ompl::base::State *> &pat
     }
 
     simplifyActionIntervals(path);
+  //  shortcutPath(path);
+  //  simplifyActionIntervals(path);
 
 }
 
@@ -782,7 +839,6 @@ ompl::base::PlannerStatus ompl::geometric::RRTnew::solve(const base::PlannerTerm
     auto best_path(std::make_shared<PathGeometric>(si_));
     bestCost_ = opt_->infiniteCost();
 
-
     while (!ptc)
     {
         iterations_++;
@@ -811,7 +867,9 @@ ompl::base::PlannerStatus ompl::geometric::RRTnew::solve(const base::PlannerTerm
             }
         }
         /* sample random state */
+
         sampler_->sampleUniform(rstate);
+
         GrowState gs = growTree(tree, tgi, rmotion);
 
 
@@ -864,13 +922,14 @@ ompl::base::PlannerStatus ompl::geometric::RRTnew::solve(const base::PlannerTerm
   /*              std::ofstream f2("mazeAF.txt");
                 path->printAsMatrix(f2);
 */
-
                 if(getCostPath(path->getStates()) < bestCost_.value())
                 {
                     std::cout << "we found better path :" << getCostPath(path->getStates()) << ", earlier : " << bestCost_.value() << std::endl;
                     std::vector<ompl::base::State *>().swap(best_path->getStates()); // free mem
                     best_path = path;
                     bestCost_ = base::Cost(getCostPath(best_path->getStates()),0.0);
+
+                   // si_->freeState(rstate);
                 }else
                 {
               //      std::cout << "worst path :" << getCostPath(path->getStates()) << ", best current : " << bestCost_.value() << std::endl;
@@ -942,6 +1001,10 @@ ompl::base::PlannerStatus ompl::geometric::RRTnew::solve(const base::PlannerTerm
             path->append(mpath[i]->state);
         pdef_->addSolutionPath(path, true, approxdif, getName());
         return base::PlannerStatus::APPROXIMATE_SOLUTION;
+    }else if(best_path->getStateCount()>1)
+    {
+        pdef_->addSolutionPath(best_path, false, 0.0, getName());
+        solved = true;
     }
 
     return solved ? base::PlannerStatus::EXACT_SOLUTION : base::PlannerStatus::TIMEOUT;
