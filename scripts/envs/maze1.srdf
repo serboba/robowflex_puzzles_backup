@@ -3,10 +3,9 @@
 
 
       <group name="link_0_gr">
-     <joint name="cube_joint" />
-     <joint name="cube_joint2" />
-
-     <joint name="cube_joint3" />
+     <joint name="link_0_joint_0" />
+     <joint name="link_0_joint_1" />
+     <joint name="link_0_joint_2" />
      </group> 
     
     <group name="link_1_gr">
@@ -51,3 +50,4 @@
     <disable_collisions link1="base_link" link2="cube2" reason="default" />
 
 </robot>
+
