@@ -19,34 +19,44 @@
 
 using namespace Eigen;
 
+struct Link{
+    std::string name;
+    Vector3d size,pos,rpy;
+
+    Link(std::string name_, Vector3d size_,Vector3d pos_,Vector3d rpy_) : name(name_),size(size_),pos(pos_),rpy(rpy_) {}
+};
+
+struct Joint{
+    std::string type,name;
+    Vector3d pos,rpy;
+    Vector3d axis;
+
+    Joint(std::string type_,std::string name_,Vector3d pos_,Vector3d rpy_, Vector3d axis_) : name(name_), type(type_),pos(pos_),rpy(rpy_),axis(axis_) {}
+};
 
 
 class Object {
     public:
 
-        std::string link_name;
-        Vector3d link_size,link_xyz, link_rpy, joint_rpy;
-        std::string joint_name, group_name;
-        Vector3d joint_xyz;
         //tf2::Quaternion actual_rotation;
 
+        Joint joint;
+        Link link;
+        std::string group_name;
 
         Vector3d actual_position,actual_rotation;
 
         Object(std::string l_name,Eigen::Vector3d l_size,Eigen::Vector3d l_xyz, Eigen::Vector3d l_rpy,
-               std::string j_name, Eigen::Vector3d j_xyz, Eigen::Vector3d j_rpy, std::string gr_name){
-            link_name = l_name;
-            link_size = l_size;
-            link_xyz = l_xyz;
-            link_rpy = l_rpy;
-
-            joint_name = j_name;
-            joint_xyz = j_xyz;
-            joint_rpy = j_rpy;
+               std::string j_name, Eigen::Vector3d j_xyz, Eigen::Vector3d j_rpy, std::string gr_name,
+               std::string j_type, Vector3d j_axis)
+               :
+               link(l_name,l_size,l_xyz,l_rpy), joint(j_type,j_name,j_xyz,j_rpy,j_axis)
+               {
+            
             group_name = gr_name;
             actual_position = j_xyz+l_xyz;
             actual_rotation = j_rpy + l_rpy;
-            actual_position.normalize();
+            
             std::cout << "ACTUAL POS " << actual_position << std::endl;
             std::cout << "ACTUAL ROT " << actual_rotation << std::endl;
             }

@@ -22,7 +22,7 @@
        </collision>
     </link>
 
-    <link name="cube">
+    <link name="link_0">
       <visual>
         <geometry>
           <box size="0.1 0.1 0.1"/>
@@ -43,8 +43,9 @@
 
 <link name ="cube_x"/>
 
+<link name ="cube_z"/>
 
-     <link name="door1">
+     <link name="link_1">
       <visual>
         <geometry>
           <box size="0.05 0.33 0.16"/>
@@ -62,7 +63,7 @@
        </collision>
     </link>
 
-     <link name="door2">
+     <link name="link_t">
       <visual>
       <origin rpy="0 0 0" xyz="0 0 0" />
         <geometry>
@@ -75,7 +76,7 @@
     </link>
 
 
-    <link name="obs">
+    <link name="link_2">
       <visual>
         <geometry>
           <box size="0.1 0.25 0.1"/>
@@ -94,6 +95,8 @@
     </link>
 
 <link name ="obs_x"/>
+
+<link name ="obs_z"/>
 
  <link name="cube_goal">
       <visual>
@@ -117,14 +120,14 @@
 
 
 <joint name="goal" type="fixed">
-    <origin rpy="0 0 0" xyz="1.02 -0.75 0.86" />
+    <origin rpy="0 0 0" xyz="1.02 -0.75 0.87" />
     <parent link="base_link" />
     <child link="cube_goal" />
   </joint>
 
 
-<joint name="cube_joint" type="prismatic">
-    <origin rpy="0 0 0" xyz="0.30 -0.8 0.86" />
+<joint name="link_0_joint_0" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.30 -0.8 0.87" />
     <parent link="base_link" />
     <child link="cube_x" />
    <axis xyz="1 0 0" />
@@ -132,47 +135,66 @@
   </joint>
 
 
-<joint name="cube_joint2" type="prismatic">
+<joint name="link_0_joint_1" type="prismatic">
     <origin rpy="0 0 0" xyz="0.0 0 0.0" />
     <parent link="cube_x" />
-    <child link="cube" />
+    <child link="cube_z" />
    <axis xyz="0 1 0" />
-  <limit lower="0.0" upper="1.0" effort="0.05" velocity="1.57"/>
+  <limit lower="0.0" upper="1.05" effort="0.05" velocity="1.57"/>
   </joint>
 
 
-    <joint name="door_joint1" type="prismatic">
+<joint name="link_0_joint_2" type="revolute">
+    <origin rpy="0 0 0" xyz="0.0 0 0.0" />
+    <parent link="cube_z" />
+    <child link="link_0" />
+   <axis xyz="0 0 1"/>
+  <limit lower="-1.57" upper="1.57" effort="0.05" velocity="1.57"/>
+  </joint>
+
+
+
+    <joint name="link_1_joint_0" type="prismatic">
         <origin rpy="0 0 0" xyz="0.45 -0.735 0.89"/>
         <parent link="base_link"/>
-        <child link="door1"/>
+        <child link="link_1"/>
         <axis xyz="1 0 0"/>
         <limit lower="-0.25" upper="0.5" effort="5" velocity="1.57"/>
     </joint>
 
  <joint name="door_joint2" type="fixed">
         <origin rpy="0 0 0" xyz="0.0 -0.182 -0.028"/>
-        <parent link="door1"/>
-        <child link="door2"/>
+        <parent link="link_1"/>
+        <child link="link_t"/>
     </joint>
 
 
 
-<joint name="obs_joint" type="prismatic">
-    <origin rpy="0 0 0" xyz="0.95 -0.75 0.86" />
+<joint name="link_2_joint_0" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.95 -0.75 0.87" />
     <parent link="base_link" />
     <child link="obs_x" />
    <axis xyz="1 0 0" />
-  <limit lower="-0.50" upper="0.50" effort="0.05" velocity="1.57"/>
+  <limit lower="-0.70" upper="0.20" effort="0.05" velocity="1.57"/>
   </joint>
 
 
-<joint name="obs_joint2" type="prismatic">
+<joint name="link_2_joint_1" type="prismatic">
     <origin rpy="0 0 0" xyz="0.0 0 0.0" />
     <parent link="obs_x" />
-    <child link="obs" />
+    <child link="obs_z" />
    <axis xyz="0 1 0" />
-  <limit lower="-0.1" upper="0.82" effort="0.05" velocity="1.57"/>
+  <limit lower="-0.1" upper="0.90" effort="0.05" velocity="1.57"/>
   </joint>
+
+<joint name="link_2_joint_2" type="revolute">
+    <origin rpy="0 0 0" xyz="0.0 0 0.0" />
+    <parent link="obs_z" />
+    <child link="link_2" />
+   <axis xyz="0 0 1" />
+  <limit lower="-1.57" upper="1.57" effort="0.05" velocity="1.57"/>
+  </joint>
+
 
 
 </robot>

@@ -2,81 +2,78 @@ import xml.etree.ElementTree as ET
 import shutil
 import os
 
-def convert_files_to_xml():
-    src_dir = os.getcwd()  # copy the urdf into xml_files and convert
-    target_dir = src_dir + "/xml_files"
-    for urdf_file in os.listdir(os.getcwd()):
-        if urdf_file.endswith(".urdf"):
-            temp = urdf_file.split(".")
-            new_name = temp[0] + '.xml'
-            src_file = os.path.join(src_dir, urdf_file)
-            target_file = os.path.join(target_dir, new_name)
-            shutil.copy2(src_file, target_file)
-        if urdf_file.endswith(".srdf"):
-            temp = urdf_file.split(".")
-            new_name = temp[0] + '_srdf.xml'
-            src_file = os.path.join(src_dir, urdf_file)
-            target_file = os.path.join(target_dir, new_name)
-            shutil.copy2(src_file, target_file)
-    translate_into_txt(target_dir)
-    delete_xml(target_dir)
 
 def translate_into_txt(target_dir):
-
+    target_dir = os.getcwd() + target_dir
     for f in os.listdir(target_dir):
-        f_new = f.split('.')[0]
-        f_new = f_new+'.txt'
-        print(f_new)
+        f_new_ = f.split('.')[0]
+
+        f_new = f_new_+'.txt'
         txt_file = []
-        root = ET.parse(target_dir+'/'+f).getroot()
-        if(f.endswith('_srdf.xml')):
-            txt_file = parse_srdf_file(root)
-        elif(f.endswith('.xml')):
-            txt_file = parse_urdf_file(root)
+        if(f.endswith('urdf')):
+            txt_file = parse_file(target_dir+'/'+f_new_)
         else:
             continue
         if(len(txt_file)>=1):
-            write_into_txt(txt_file,(target_dir+'/'+f_new))
+            write_into_txt(txt_file,('obj_txt'+'/'+f_new))
 
 
-def parse_urdf_file(root):
+def parse_file(root_name):
+    print(root_name)
+    group_names = []
+
+    root = ET.parse(root_name+'.srdf').getroot()
+    for group in root.findall('group'):
+        group_names.append(group.get('name'))
+
+    print(group_names)
+
+    root = ET.parse(root_name + '.urdf').getroot()
+
     links = []
     for link in root.findall('link'):
         link_name = link.get('name')
-        if (link.find('visual') != None and link.find('visual/geometry/mesh') == None and link.find('visual/geometry/box') != None ):  # if object different type ?
+        if (link.find('visual') != None and link.find('visual/geometry/mesh') == None and link.find('visual/geometry/box') != None
+                and link.find('collision/geometry') != None):  # if object different type ?
             link_size = link.find('visual/geometry/box').get('size')
             link_xyz = link.find('visual/origin').get('xyz')
             link_rpy = link.find('visual/origin').get('rpy')
             line1 = link_name + ',' + link_size + ',' + link_rpy + ',' + link_xyz
             links.append(line1)
-
+    print(links)
     joints = []
     indices =[]
 
     for joint in root.findall('joint'):  # inside robowflex getACM (unnecessary)
-        j_child_name = joint.find('child').get('link')
         if(joint.get('type') == 'fixed'):
             continue
-        index_j = [i for i, s in enumerate(links) if j_child_name in s]
-        if (len(index_j)>0):
-            indices.append(index_j[0])
-            print(index_j, j_child_name)
-            print(links)
-        if any(j_child_name in s for s in links):
+        j_name = joint.get('name')
+        print( j_name)
+        if 1:
             origin_xyz = joint.find('origin').get('xyz')
             origin_rpy = joint.find('origin').get('rpy')
             j_name = joint.get('name')
             j_type = joint.get('type')
             j_axis = joint.find('axis').get('xyz')
-            j_lower_limit = joint.find('limit').get('lower')
-            j_upper_limit = joint.find('limit').get('upper')
-            j_line = j_name + ',' + origin_rpy + ',' + origin_xyz + '\n' + j_type + ',' + j_axis + '\n' + j_lower_limit+ ',' +j_upper_limit
+            j_line = j_name + ','+ origin_xyz + ','+ origin_rpy + ','  + j_type + ',' + str(j_axis)
             joints.append(j_line)
+            print(j_line)
 
     merge = []
-    for i in range(len(indices)):
-        merge.append(links[indices[i]])
-        merge.append(joints[i])
+    for i in range(len(group_names)):
+        line =  group_names[i]+','
+
+        link = links[i]
+        link_ = link[0:6]
+        line += link
+        for joint in joints:
+            joint_ = joint[0:6]
+            if(joint_ == link_):
+                line += ',' + joint
+                #print(line)
+
+        #print(line)
+        merge.append(line)
     return merge
 
 
@@ -87,17 +84,22 @@ def parse_srdf_file(root):
         joint_name = group.find('joint').get('name')
         g_line = joint_name + ',' + groups_joint
         groups.append(g_line)
+
+    print(groups)
     return groups
     # print(g_line)
 
 def write_into_txt(file,name):
+
     with open(name, 'w') as f:
         for item in file:
             f.write("%s\n" % item)
 
-def delete_xml(target_dir):
-    for f in os.listdir(target_dir):
-        if(f.endswith('.xml')):
-            os.remove(target_dir+'/'+f)
 
-convert_files_to_xml()
+
+def main():
+    translate_into_txt("/envs")
+if __name__ == "__main__":
+    main()
+
+#convert_files_to_xml()

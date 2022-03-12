@@ -2,39 +2,63 @@
 <robot name="maze2">
 
 
-    <group name="cubegr_0">
-     <joint name="cube_joint" />
-     <joint name="cube_joint2" />
+    <group name="link_0_gr">
+     <joint name="link_0_joint_0" />
+     <joint name="link_0_joint_1" />
+     <joint name="link_0_joint_2" />
     </group>  
 
-    <group name="doorgr1">
-     <joint name="door_joint1" />
+    <group name="link_1_gr">
+     <joint name="link_1_joint_0" />
     </group>
 
 
-    <group name="cubegr_1">
-     <joint name="obs_joint" />
-     <joint name="obs_joint2" />
+    <group name="link_2_gr">
+     <joint name="link_2_joint_0" />
+     <joint name="link_2_joint_1" />
+     <joint name="link_2_joint_2" />
+     
     </group>  
 
 
     <disable_collisions link1="base_link" link2="table" reason="default" />
-    <disable_collisions link1="base_link" link2="door1" reason="default" />
+    <disable_collisions link1="base_link" link2="link_1" reason="default" />
 
     <disable_collisions link1="base_link" link2="door2" reason="default" />
 
-    <disable_collisions link1="base_link" link2="cube" reason="default" />
+    <disable_collisions link1="base_link" link2="link_0" reason="default" />
     <disable_collisions link1="base_link" link2="cube_x" reason="default" />
 
-    <disable_collisions link1="base_link" link2="obs" reason="default" />
     <disable_collisions link1="base_link" link2="obs_x" reason="default" />
 
 
-    <disable_collisions link1="table" link2="door1" reason="default" />
+    <disable_collisions link1="base_link" link2="link_2" reason="default" />
+    <disable_collisions link1="base_link" link2="obs_x" reason="default" />
+
+
+    <disable_collisions link1="table" link2="link_1" reason="default" />
     <disable_collisions link1="table" link2="door2" reason="default" />
 
     <disable_collisions link1="table" link2="cube_x" reason="default" />
     <disable_collisions link1="table" link2="obs_x" reason="default" />
-    
 
+
+    <disable_collisions link1="obs_x" link2="cube_x" reason="default" />    
+
+    <disable_collisions link1="obs_x" link2="link_0" reason="default" />    
+
+    <disable_collisions link1="obs_x" link2="link_1" reason="default" /> 
+    <disable_collisions link1="obs_x" link2="door2" reason="default" /> 
+
+
+    <disable_collisions link1="cube_x" link2="link_1" reason="default" /> 
+    <disable_collisions link1="cube_x" link2="door2" reason="default" /> 
+
+    <disable_collisions link1="cube_goal" link2="obs_x" reason="idk"/>
+    <disable_collisions link1="cube_goal" link2="link_2" reason="idk"/>
+
+    <disable_collisions link1="cube_goal" link2="cube_x" reason="idk"/>
+    <disable_collisions link1="cube_goal" link2="link_0" reason="idk"/>
+
+    <disable_collisions link1="link_1" link2="cube_x" reason="default" />
 </robot>
