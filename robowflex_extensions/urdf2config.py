@@ -9,8 +9,7 @@ def parse_urdf_file(root):
     for group in root.findall('joint'):
         joint_name = group.get('name')
         if(joint_name=="goal"):
-            goal_pos = group.find("origin").get("xyz") +" "+ group.find("origin").get("rpy")
-            print(goal_pos)
+            goal_pos = group.find("origin").get("xyz")
             return goal_pos
 
     return -1
@@ -28,9 +27,9 @@ def parse_srdf_file(root):
     return groups
 
 def translate_into_txt(filename):
-    filename1 = 'envs/'+filename
-    srdf_name = filename1 +'.srdf'
-    urdf_name = filename1 +'.urdf'
+    f_ = 'result.txt'
+    srdf_name = filename +'.srdf'
+    urdf_name = filename +'.urdf'
     txt_file = []
 
     res = parse_srdf_file(ET.parse(srdf_name).getroot())
@@ -43,21 +42,14 @@ def translate_into_txt(filename):
     write_into_txt(txt_file,txt_name)
 
 def write_into_txt(file,name):
-    os.getcwd()
-    direc = "txt_files/"
+    direc = "/home/serboba/rb_ws/devel/lib/robowflex_dart/txt_files/"
     name_ = os.path.join(direc,name)
     with open(name_, 'w') as f:
         for item in file:
             f.write("%s\n" % item)
 
 
-if len(sys.argv) == 1:
-    sys.exit("NOT ENOUGH ARGS")
-
-translate_into_txt(str(sys.argv[1]))
-# def main():
-#     translate_into_txt("simple_sliders")
-#
-# if __name__ == '__main__':
-#     main()
-
+argc = len(sys.argv)
+argv = sys.argv
+if len(argv) != 2:
+    translate_into_txt(argv[1])

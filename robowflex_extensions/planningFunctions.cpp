@@ -3,10 +3,10 @@
 //
 
 #include <robowflex_dart/planningFunctions.h>
-
+#include <ompl/geometric/planners/fmt/FMT.h>
+#include <ompl/geometric/planners/fmt/BFMT.h>
 using namespace robowflex;
 
-static const std::string GROUP = "arm_with_torso";
 static const std::string GROUP_X = "arm_with_x_move";
 
 
@@ -109,7 +109,7 @@ void evaluate_pos (std::shared_ptr<darts::World> world,Eigen::MatrixXd &pose, bo
     Eigen::MatrixXd position = pose.block(0, 0, 1, 3);
     Eigen::MatrixXd quaternion = pose.block(0, 3, 1, 4);
     double l = 0.0;
-    normals_help = false; // TODO SET AS PARAMETER IN SCRIPTS
+    normals_help = true; // TODO SET AS PARAMETER IN SCRIPTS
     while((!found_pose && l<=0.30)){ // HOW TO SET L VALUE?? l = stretching factor for normal // new -> disable/enable strech normal depending on what obj you grasp
         l = l+ 0.01; // todo adjust L ? find optimal L ? how to set optimal L ?
 
@@ -134,16 +134,16 @@ void evaluate_pos (std::shared_ptr<darts::World> world,Eigen::MatrixXd &pose, bo
         builder.ss->setPlanner(rrt);
         builder.setup();
 
-       // ompl::base::ScopedState<> goal_state(builder.space);
+        // ompl::base::ScopedState<> goal_state(builder.space);
         ompl::base::State * goal_state = builder.rspace->allocState();
         builder.rspace->copyFromReals(goal_state,config_vec);
-       // builder.ss->getSpaceInformation().get()->getStateSpace()->copyFromReals(goal_state.get(),config_vec);
+        // builder.ss->getSpaceInformation().get()->getStateSpace()->copyFromReals(goal_state.get(),config_vec);
         //    std::cout << "SATISFIES BOUNDS ?? " << builder.info->satisfiesBounds(goal_state.get()) << std::endl;
-            std::cout << "IS VALID?S ?? " << builder.rinfo->isValid(goal_state) << std::endl;
-            std::cout << "CHECKMOT?S ?? " << builder.rinfo->checkMotion(start_state,goal_state) << std::endl;
+        std::cout << "IS VALID?S ?? " << builder.rinfo->isValid(goal_state) << std::endl;
+        std::cout << "CHECKMOT?S ?? " << builder.rinfo->checkMotion(start_state,goal_state) << std::endl;
         //    if (builder.info->satisfiesBounds(goal_state.get()) && builder.info->isValid(goal_state.get()))
         if ( builder.rinfo->isValid(goal_state)){
-     //   if ( builder.rinfo->checkMotion(start_state,goal_state)){
+            //   if ( builder.rinfo->checkMotion(start_state,goal_state)){
             found_pose=true;
             OMPL_DEBUG("TRUE STATE VALID");
             Eigen::MatrixXd result(1,7);
@@ -185,6 +185,7 @@ Eigen::MatrixXd get_pose(std::shared_ptr<darts::World> world, Object &obj, int &
 
 bool grasp(std::shared_ptr<darts::World> &world, darts::Window &window, Object &obj, int &surf_no,
            bool normals_help, std::shared_ptr<darts::Robot> &robot_, Eigen::VectorXd old_config){
+
     Eigen::MatrixXd pose_m = get_pose(world,obj,  surf_no, normals_help);
 
     darts::PlanBuilder builder(world);
@@ -192,7 +193,7 @@ bool grasp(std::shared_ptr<darts::World> &world, darts::Window &window, Object &
     std::cout << "old config : " << std::endl;
     std::cout << old_config << std::endl;
 
-    builder.setStartConfiguration(old_config); // TODO
+    builder.setStartConfiguration(old_config);
     builder.initialize();
 
     ompl::base::PlannerStatus solved;
@@ -234,7 +235,7 @@ void add_constraint_to_builder(std::shared_ptr<darts::World> &world, darts::Plan
                                std::shared_ptr<darts::Robot> &robot_, std::shared_ptr<darts::Robot> &obj_robot_){
 
     darts::TSR::Specification con_spec;
-    con_spec.setBase(obj_robot_->getName(), obj.link_name);
+    con_spec.setBase(obj_robot_->getName(), obj.link.name);
     con_spec.setTarget(robot_->getName(),"wrist_roll_link");
     con_spec.setPoseFromWorld(world);
 
@@ -246,6 +247,7 @@ std::shared_ptr<darts::TSR> create_goalTSR(Eigen::MatrixXd rotation, Eigen::Vect
                                            std::shared_ptr<darts::World> &world){
     darts::TSR::Specification goal_spec;
     goal_spec.setFrame(robot_name,"wrist_roll_link","move_x_axis");
+    std::cout << "pos in cre : " << position << std::endl;
     goal_spec.setPosition(position);
     goal_spec.setRotation(rotation(0),rotation(1),rotation(2),rotation(3));
 
@@ -258,13 +260,12 @@ bool plan_to_grasp(std::shared_ptr<darts::World> &world, darts::Window &window, 
     MatrixXd pose_m(1,11);
     // this new part secure the older pose from the earlier motion
 
-   // builder.setStartConfiguration(start_config);
+    // builder.setStartConfiguration(start_config);
 
     std::cout << "START:  " << std::endl;
     std::cout << start_config << std::endl;
 
     while(!grasp(world, window, obj, surf_no,  normals_help, robot_,start_config)){
-        //builder2.setStartConfiguration(start_config);
         std::cout << "start_config::::::::::::: " << std::endl;
         std::cout << start_config << std::endl;
         //set start config
@@ -282,7 +283,7 @@ void get_pos_rot_from_frame (std::shared_ptr<darts::World> &world, Vector3d &pos
     rotation = actual_quaternion(new_degre, surf_no);
 
     std::cout<< "NEW DEGREE : " << new_degre << std::endl;
-    MatrixXd rotvex = get_rotated_vertex(degrees, pos_spec.getPosition(), obj.joint_xyz);
+    MatrixXd rotvex = get_rotated_vertex(degrees, pos_spec.getPosition(), (obj.joints.pos+obj.link.pos));
     position = matrix_to_vec(rotvex);
 
 }
@@ -311,7 +312,7 @@ bool plan_to_rotate_rpy (std::shared_ptr<darts::World> &world, darts::Window &wi
     goal->setThreshold(0.01); // maybe find better threshold?
     builder.setGoal(goal);
 
-    auto rrt = std::make_shared<ompl::geometric::KPIECE1>(builder.info);
+    auto rrt = std::make_shared<ompl::geometric::FMT>(builder.info);
     //  rrt->setRange(0.10);
     builder.ss->setPlanner(rrt);
     builder.setup();
@@ -341,18 +342,47 @@ bool plan_to_rotate_rpy (std::shared_ptr<darts::World> &world, darts::Window &wi
     }
 }
 
-bool plan_to_move_xyz_axis (std::shared_ptr<darts::World> &world,darts::Window &window,Object &obj, int axis, double value,
+void translateActionToGoalRegion(Vector3d &position,Eigen::Quaterniond &rotation,ActionR action_, Object &obj)
+{
+    int surfno = 5;
+    std::cout << rotation.coeffs() << std::endl;
+    //action_.rpy(1) = 1.5708;
+    if(action_.pos.isZero()){
+        std::cout<<"YES POS ZERO, probably door"<<std::endl;
+        std::cout<< "old pos : " << position << std::endl;
+        rotation = matrix_to_quaternion(actual_quaternion(vec_to_matrix(action_.rpy+obj.actual_rotation), surfno));
+
+        Vector3d sg = action_.rpy;
+        position = matrix_to_vec(get_rotated_vertex(sg, position, obj.joints.pos));
+        std::cout<< "new pos : " << position << std::endl;
+    }
+    else
+    {
+
+        std::cout<< "old pos : " << position << std::endl;
+        position += action_.pos;
+        std::cout<< "new pos : " << position << std::endl;
+
+    }
+
+}
+
+
+bool plan_to_move (std::shared_ptr<darts::World> &world,darts::Window &window,Object &obj, ActionR action_,
                             std::shared_ptr<darts::Robot> &robot_, std::shared_ptr<darts::Robot> &obj_robot_ ) {
     darts::PlanBuilder builder(world);
     builder.addGroup(robot_->getName(), GROUP_X);
     builder.addGroup(obj_robot_->getName(), obj.group_name);
     builder.setStartConfigurationFromWorld();
     auto idk = builder.getStartConfiguration();
+    std::cout << int(world->getRobot(obj_robot_->getName())->getGroupJoints(obj.group_name).size()) << std::endl;
+    Eigen::VectorXd backup_state(int(world->getRobot(obj_robot_->getName())->getGroupJoints(obj.group_name).size()));
+    world->getRobot(obj_robot_->getName())->getGroupState(obj.group_name,backup_state);
 
     darts::TSR::Specification pos_spec;
     pos_spec.setFrame(robot_->getName(),"wrist_roll_link", "move_x_axis");
     pos_spec.setPoseFromWorld(world);
-
+    //pos_spec.print(std::cout);
     auto rotation = pos_spec.getRotation();
     Eigen::Vector3d position = pos_spec.getPosition();
     std::cout << "OLD POSITION : " << position << std::endl;
@@ -361,36 +391,38 @@ bool plan_to_move_xyz_axis (std::shared_ptr<darts::World> &world,darts::Window &
 
     builder.initialize();
 
-    handle_axis(axis,value,position);
+    translateActionToGoalRegion(position,rotation,action_,obj);
 
     auto goal = builder.getGoalTSR(create_goalTSR(eigen_quaternion_to_matrix(rotation),position,robot_->getName(),world));
-    goal->setThreshold(0.01); // maybe find better threshold?
+    //goal->getTSRSet()->print(std::cout);
+    goal->setThreshold(0.001);
     builder.setGoal(goal);
 
     auto rrt = std::make_shared<ompl::geometric::KPIECE1>(builder.info);
-    //  rrt->setRange(0.10);
     builder.ss->setPlanner(rrt);
     builder.setup();
 
     goal->startSampling();
-    ompl::base::PlannerStatus solved = builder.ss->solve(60.0);
+    ompl::base::PlannerStatus solved = builder.ss->solve(180.0);
     goal->stopSampling();
 
     OMPL_DEBUG("HAVE EXACT SOLUTION PATH: ");
     std::cout << builder.ss->haveExactSolutionPath() << std::endl;
+    builder.ss->simplifySolution();
 
     if (solved == ompl::base::PlannerStatus::EXACT_SOLUTION )
     {
+
         RBX_INFO("Found solution!");
-        window.animatePath(builder, builder.getSolutionPath());
-        obj.actual_position[axis] += value;
+        window.animatePath(builder, builder.getSolutionPath(true));
+        obj.actual_position += action_.pos;
+        obj.actual_rotation += action_.rpy;
+
         return true;
     }
     else{
         RBX_WARN("No solution found");
-        Eigen::VectorXd reset(2);
-        reset << 0, 0;
-        world->getRobot(obj_robot_->getName())->setGroupState(obj.group_name,reset); // TODO
+        world->getRobot(obj_robot_->getName())->setGroupState(obj.group_name,backup_state); // TODO
         return false;
     }
 }

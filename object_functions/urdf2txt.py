@@ -19,14 +19,14 @@ def translate_into_txt(target_dir):
 
 
 def parse_file(root_name):
-    print(root_name)
+    #print(root_name)
     group_names = []
 
     root = ET.parse(root_name+'.srdf').getroot()
     for group in root.findall('group'):
         group_names.append(group.get('name'))
 
-    print(group_names)
+    #print(group_names)
 
     root = ET.parse(root_name + '.urdf').getroot()
 
@@ -40,7 +40,7 @@ def parse_file(root_name):
             link_rpy = link.find('visual/origin').get('rpy')
             line1 = link_name + ',' + link_size + ',' + link_rpy + ',' + link_xyz
             links.append(line1)
-    print(links)
+    #print(links)
     joints = []
     indices =[]
 
@@ -48,7 +48,7 @@ def parse_file(root_name):
         if(joint.get('type') == 'fixed'):
             continue
         j_name = joint.get('name')
-        print( j_name)
+        #print( j_name)
         if 1:
             origin_xyz = joint.find('origin').get('xyz')
             origin_rpy = joint.find('origin').get('rpy')
@@ -57,7 +57,7 @@ def parse_file(root_name):
             j_axis = joint.find('axis').get('xyz')
             j_line = j_name + ','+ origin_xyz + ','+ origin_rpy + ','  + j_type + ',' + str(j_axis)
             joints.append(j_line)
-            print(j_line)
+            #print(j_line)
 
     merge = []
     for i in range(len(group_names)):
@@ -72,6 +72,7 @@ def parse_file(root_name):
                 line += ',' + joint
                 #print(line)
 
+        line += ';'
         #print(line)
         merge.append(line)
     return merge
@@ -85,7 +86,7 @@ def parse_srdf_file(root):
         g_line = joint_name + ',' + groups_joint
         groups.append(g_line)
 
-    print(groups)
+    #print(groups)
     return groups
     # print(g_line)
 

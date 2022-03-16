@@ -20,13 +20,13 @@
 #include <tf2/LinearMath/Quaternion.h>
 
 using namespace Eigen;
-
+/*
 std::string link_name,link_size,link_xyz,link_rpy;
 std::string joint_name,joint_xyz,joint_rpy, group_name, joint_type, joint_axis, joint_bound;
 std::vector<std::string> link_names,joint_names,joint_names_srdf,group_names, joint_types;
 std::vector<std::vector<double>> link_sizes,link_positions,link_rotations;
 std::vector<std::vector<double>> joint_positions,joint_rotations, joint_axes, joint_bounds;
-
+*/
 std::vector<Object> objects;
 
 MatrixXd get_object_vertices(Vector3d joint_pos, Vector3d object_size){
@@ -64,18 +64,14 @@ MatrixXd get_rotated_vertex(MatrixXd quat, Vector3d new_rpy, Vector3d point, Vec
     //MatrixXd q1 = rpy_to_quaternion(obj_rpy[0],obj_rpy[1],obj_rpy[2]);
     MatrixXd deg = vec_to_matrix(new_rpy);
     MatrixXd q1 = new_rotation_quaternion(deg, matrix_to_quaternion(quat),0);
-
     switch (surf_no) {
-
-
     }
-
 
     return (joint_pos + matrix_to_quaternion(q1)*(point-joint_pos));
     //return (joint_pos+ get_quaternion_from_euler(degrees[2],degrees[1],degrees[0])*(point-joint_pos));
 }
-*/
 
+*/
 MatrixXd get_rotated_object(Vector3d obj_rpy, Vector3d joint_pos, Vector3d object_size){ //rotate for all vertices
     MatrixXd vertices = get_object_vertices(joint_pos,object_size);
     for(int i = 0 ; i< vertices.rows(); i++){
@@ -183,104 +179,127 @@ Eigen::Quaterniond rotate_quaternion(double roll, double pitch, double yaw, Quat
     return q_res;
 }
 
+std::vector<double> get_goal_from_urdf(std::string filename) {
+    std::ifstream file_(filename);
+    std::string line;
+    bool found = false;
+    std::string str = "<joint name=\"goal\" type=\"fixed\">";
+    std::string delim = "xyz=\"";
+    while(std::getline(file_,line)){
+        if(line.find(str,0) != std::string::npos){
+            break;
+        }
+    }
+    std::getline(file_,line);
+
+    size_t pos_start = 0;
+    size_t pos_end, delim_len = delim.length();
+    std::string token;
+
+    if((pos_end = line.find(delim,pos_start))!= std::string::npos){
+        pos_start = pos_end + delim_len;
+        token = line.substr(pos_start,pos_end-pos_start);
+    }
+    std::vector<double> pose = read_into_vector(token);
+    std::vector<double> goal_rot = {1.0,0.0,0.0,0.0}; // identity rotation
+    pose.insert(pose.end(),goal_rot.begin(),goal_rot.end());
+
+    return pose;
+}
+
 
 std::vector<double> read_into_vector(std::string str){
     std::istringstream ss(str);
     std::string s;
     std::vector<double> vec;
-    while(std::getline(ss,s,' ')){
+    int i = 0;
+    while(std::getline(ss,s,' ') && i < 3){
         double temp = std::stod(s);
         vec.push_back(temp);
+        i++;
     }
     return vec;
 }
 
-void read_srdf_file(std::string filename){
-    std::string str = "xml_files/" + filename;
+void read_obj_txt_file(std::string filename,std::vector<Object> &objects_){
+    std::string str = "obj_txt/" + filename+".txt";
     std::ifstream inFile(str); // CHANGE W FILENAME
-    if(inFile.is_open()){
-        std::string line;
-        while(std::getline(inFile,line)){
-            std::stringstream ss(line);
-            std::getline(ss, joint_name, ',');
-            joint_names_srdf.push_back(joint_name);
 
-            std::getline(ss, group_name, ',');
-            group_names.push_back(group_name);
-        }
-    }
-    inFile.close();
-}
+    std::string gr_name;
 
-void read_urdf_file(std::string filename){
-    std::string str = "xml_files/" + filename;
-    std::ifstream inFile(str); // CHANGE W FILENAME
     if(inFile.is_open()){
         std::string line;
         int i =0;
         while(std::getline(inFile,line)){
             std::stringstream ss(line);
-            if(i ==0) {
-                std::getline(ss, link_name, ',');
-                link_names.push_back(link_name);
 
-                std::getline(ss, link_size, ',');
-                link_sizes.push_back(read_into_vector(link_size));
+                OLink link_;
+                std::getline(ss, line, ',');
+                gr_name = line;
+                std::getline(ss, line, ',');
+                link_.name = line;
+                std::getline(ss, line, ',');
+                link_.size = stdvec_to_eigen_vec(read_into_vector(line));
+                std::getline(ss, line, ',');
+                link_.rpy = stdvec_to_eigen_vec(read_into_vector(line));
+                std::getline(ss, line, ',');
+                link_.pos = stdvec_to_eigen_vec(read_into_vector(line));
 
-                std::getline(ss, link_rpy, ',');
-                link_rotations.push_back(read_into_vector(link_rpy));
+            std::string joint_line;
+                std::getline(ss,joint_line,';');
+                std::stringstream ss2(joint_line);
 
-                std::getline(ss, link_xyz, ',');
-                link_positions.push_back(read_into_vector(link_xyz));
-                i =1;
-            }else if(i==1){
-                std::getline(ss, joint_name, ',');
-                joint_names.push_back(joint_name);
+                OJoints joints;
+                std::vector<OJoint> joints_sub;
+                bool flag = true;
+                while(getline(ss2,joint_line,','))
+                {
+                    OJoint joint;
+                    if(flag)
+                    {
+                        joint.name = joint_line;
 
-                std::getline(ss, joint_rpy, ',');
-                joint_rotations.push_back(read_into_vector(joint_rpy));
+                    }
+                    else
+                    {
+                        joint.name = joint_line;
+                    }
+                    getline(ss2,joint_line,',');
+                    if(flag) // main joint, which contains the position and orientation, other joints have pos and rpy 0
+                    {
+                        joints.pos = stdvec_to_eigen_vec(read_into_vector(joint_line));
+                        getline(ss2,joint_line,',');
+                        joints.rpy = stdvec_to_eigen_vec(read_into_vector(joint_line));
+                        getline(ss2,joint_line,',');
+                        flag = false;
+                    }
+                    else
+                    {
+                        getline(ss2,joint_line,','); // pos 0 x or y axis rotation or prism joint
+                        getline(ss2,joint_line,','); // rpy 0
+                    }
 
-                std::getline(ss, joint_xyz, ',');
-                joint_positions.push_back(read_into_vector(joint_xyz));
-                i =2;
+                    if(joint_line == "prismatic")
+                        joint.type = prismatic;
+                    else
+                        joint.type = revolute;
 
-            }else if(i==2){
-                std::getline(ss, joint_type, ',');
-                joint_types.push_back(joint_type);
-
-                std::getline(ss, joint_axis, ',');
-                joint_axes.push_back(read_into_vector(joint_axis));
-                i=3;
-            }else if(i==3){
-                std::getline(ss, joint_bound, ',');
-                joint_bounds.push_back(read_into_vector(joint_bound));
-                i=0;
-            }
+                    getline(ss2,joint_line,',');
+                    joint.direction = find_direction_axis(read_into_vector(joint_line));
+                    joints_sub.push_back(joint);
+                }
+                joints.joints = joints_sub;
+                Object o_(gr_name,link_,joints);
+                objects_.push_back(o_);
         }
     }
     inFile.close();
 }
 
 
-void create_objects_from_urdf(const std::string &urdf_name, const std::string &srdf_name){
-    read_urdf_file(urdf_name);
-    read_srdf_file(srdf_name);
-    //std::vector<Object> objects_;
-    for(int i = 0; i < joint_positions.size(); i++){
-        Vector3d joint_xyz(joint_positions[i].data());
-        Vector3d joint_rpy(joint_rotations[i].data());
-        Vector3d joint_axis(joint_axes[i].data());
-        Vector2d joint_bound(joint_bounds[i].data());
-        Vector3d object_size(link_sizes[i].data());
-        Vector3d object_rpy (link_rotations[i].data());
-        Vector3d object_xyz (link_positions[i].data());
+void create_objects_from_txt(const std::string &filename, std::vector<Object> &objects_){
+    read_obj_txt_file(filename,objects_);
 
-        std::string object_gr_name = group_names[i].data();
-        std::string joint_name = joint_names[i].data();
-        std::string joint_type = joint_types[i].data();
-        std::string link_name = link_names[i].data();
-        objects.push_back(Object(link_name,object_size,object_xyz,object_rpy,joint_name,joint_xyz,joint_rpy,object_gr_name,joint_type,joint_axis,joint_bound));
-    }
 }
 
 MatrixXd match_quaternion_to_surface(int quaternion_no, int surface_no, MatrixXd rpy_matrix){
@@ -300,7 +319,7 @@ std::vector<double> get_ratio_dir_vecs(){
         ratio_vec /= 10;
         ratio.push_back(ratio_vec);
         i++;
-        std::cout <<"RANDOM RATIO VALUE : "<< ratio_vec << std::endl;
+      //  std::cout <<"RANDOM RATIO VALUE : "<< ratio_vec << std::endl;
     }
     return ratio;
 }
@@ -312,8 +331,8 @@ MatrixXd get_point_position(MatrixXd surface_equation,std::vector<double> ratio_
     Map<MatrixXd> direction_vector2(surface_equation.data()+6,1,3);
     direction_vector1 *= ratio_dir_vectors[0];
     direction_vector2 *= ratio_dir_vectors[1];
-    std::cout <<  "RATIO DIR VECTOR 1 " << ratio_dir_vectors[0] << std::endl;
-    std::cout <<  "RATIO DIR VECTOR 2 " << ratio_dir_vectors[1] << std::endl;
+//    std::cout <<  "RATIO DIR VECTOR 1 " << ratio_dir_vectors[0] << std::endl;
+//    std::cout <<  "RATIO DIR VECTOR 2 " << ratio_dir_vectors[1] << std::endl;
 
     return (position_vector+direction_vector1+direction_vector2);
 }
@@ -331,8 +350,8 @@ MatrixXd get_random_point_from_surface(MatrixXd surface_equation_matrix, MatrixX
     // (TODO) CHOOSED TOP SURFACE TO FASTER SOLUTION !
     int quaternion_no = 0; // todo +2 roll variations
     int surf_q_no = (surface_no*3)+quaternion_no; // surf no w quats
-    std::cout << " SURFACE NO: " << surface_no << std::endl;
-    std::cout << " QUAT NO: " << quaternion_no << std::endl;
+//    std::cout << " SURFACE NO: " << surface_no << std::endl;
+//    std::cout << " QUAT NO: " << quaternion_no << std::endl;
 
     MatrixXd surface_equation = extract_surface(surface_no, surface_equation_matrix);
     MatrixXd quaternion = match_quaternion_to_surface(quaternion_no,surface_no,rpy_matrix);
@@ -345,13 +364,18 @@ MatrixXd get_random_point_from_surface(MatrixXd surface_equation_matrix, MatrixX
 
 Eigen::MatrixXd get_pose_object(Object &obj, int surface_no){
 
-    obj.actual_position = get_rotated_vertex(obj.actual_rotation, (obj.link_xyz + obj.joint_xyz), obj.joint_xyz); // ADJUST JOINT POS W RESPECT TO LINK XYZ
+    auto xd = obj.link.pos + obj.joints.pos;
+    std::cout << "link pos : " << obj.link.pos << std::endl;
+    std::cout << "joint pos : " << obj.joints.pos << std::endl;
+    std::cout << "added:" << xd <<std::endl;
+    std::cout << "actual pos : " << obj.actual_position << std::endl;
+    auto actual_position = get_rotated_vertex(obj.actual_rotation, (obj.actual_position), obj.joints.pos); // ADJUST JOINT POS W RESPECT TO LINK XYZ
     std::cout <<  "Actual position : " << obj.actual_position << std::endl;
     std::cout <<  "Actual rotation : " << obj.actual_rotation << std::endl;
-    auto vertices = get_rotated_object(obj.actual_rotation, obj.actual_position,obj.link_size);
-    MatrixXd surface_equation = get_surface_equation(get_rotated_object(obj.actual_rotation, obj.actual_position,obj.link_size));
+    auto vertices = get_rotated_object(obj.actual_rotation, actual_position,obj.link.size);
+    MatrixXd surface_equation = get_surface_equation(get_rotated_object(obj.actual_rotation, actual_position,obj.link.size));
     MatrixXd normals = get_normal_of_plane(surface_equation);
-    MatrixXd rpy_matrix= vec_to_matrix(obj.link_rpy+obj.joint_rpy);
+    MatrixXd rpy_matrix= vec_to_matrix(obj.link.rpy+obj.joints.rpy);
     MatrixXd random_pose = get_random_point_from_surface(surface_equation,rpy_matrix,normals, surface_no);
 
     return random_pose;
@@ -365,13 +389,10 @@ void set_objects(std::vector<Object> objects_){
     objects = objects_;
 }
 
+
 void create_txt_from_urdf(){
     // RUN URDF2TXT
-    Py_Initialize();
-    FILE *fp;
-    fp = _Py_fopen("/home/serboba/PycharmProjects/urdf_extract2txt/urdf2txt.py", "r+");
-    PyRun_SimpleFile(fp, "/home/serboba/PycharmProjects/urdf_extract2txt/urdf2txt.py");
-    Py_Finalize();
+    std::system("python urdf2txt.py");
 
 }
 

@@ -17,6 +17,7 @@
 #include <robowflex_dart/robot.h>
 #include <robowflex_dart/tsr.h>
 #include <robowflex_dart/world.h>
+#include <robowflex_dart/ActionRobot.h>
 
 #include <robowflex_dart/point_collector.h>
 #include <robowflex_dart/conversion_functions.h>
@@ -38,15 +39,11 @@ bool plan_to_move_robot (std::shared_ptr<darts::World> &world,darts::Window &win
 bool plan_to_grasp(std::shared_ptr<darts::World> &world, darts::Window &window, Object &obj, int &surf_no, bool normals_help,
                    std::shared_ptr<darts::Robot> &robot_,Eigen::VectorXd start_config);
 
-
-bool plan_to_rotate_rpy (std::shared_ptr<darts::World> &world, darts::Window &window,Object &obj, Eigen::Vector3d &degrees, int surf_no,
-                         std::shared_ptr<darts::Robot> &robot_, std::shared_ptr<darts::Robot> &obj_robot_);
-
-
-bool plan_to_move_xyz_axis (std::shared_ptr<darts::World> &world,darts::Window &window,Object &obj, int axis, double value,
+bool plan_to_move (std::shared_ptr<darts::World> &world,darts::Window &window,Object &obj, ActionR action_,
                             std::shared_ptr<darts::Robot> &robot_, std::shared_ptr<darts::Robot> &obj_robot_ );
 
 
 void get_start_state (darts::PlanBuilder &builder_, std::vector<double> &config);
 
 #endif //ROBOWFLEX_DART_PLANNINGFUNCTIONS_H
+

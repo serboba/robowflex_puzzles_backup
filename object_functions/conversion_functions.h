@@ -50,6 +50,11 @@ MatrixXd stdvec_to_quat_matrix(std::vector<MatrixXd> quaternion_vec);
 
 std::vector<double> quaternion_matrix_to_stdvec(MatrixXd mat);
 
+
+Vector3d stdvec_to_eigen_vec(std::vector<double> vec);
+
+int find_direction_axis(std::vector<double> v);
+
 Vector3d matrix_to_vec(MatrixXd mat);
 #endif //ROBOWFLEX_DART_CONVERSION_FUNCTIONS_H
 

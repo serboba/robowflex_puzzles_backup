@@ -18,20 +18,63 @@ int indexToGroup(std::vector<double>s_from,std::vector<double>s_to,std::vector<s
                     return i;
             }
         }
-
+        return -1;
 }
 
-void translateActions(std::vector<std::pair<int,std::vector<double>>> actions_)
+void translateActions(std::vector<ActionP> &actions_, std::vector<Object> objects_, std::vector<ActionR> &actions_robot)
 {
+    for(auto &path_action : actions_)
+    {
+        auto obj = objects_.at(path_action.group_index);
+        Vector3d pos;
+        Vector3d rpy;
+        pos << 0.0,0.0,0.0;
+        rpy << 0.0,0.0,0.0;
 
+        for(size_t i = 0; i < path_action.vals.size(); i++)
+        {
+            if(obj.joints.joints.at(i).type == prismatic)
+                pos(obj.joints.joints.at(i).direction) = path_action.vals[i];
+            else
+                rpy(obj.joints.joints.at(i).direction) = path_action.vals[i];
+        }
+        actions_robot.push_back(ActionR(pos,rpy,obj.link.name,path_action.group_index));
+    }
+
+
+    Vector3d rpy_it;
+    Vector3d pos_it;
+
+    for(size_t i = 0; i < objects_.size() ; i++)
+    {
+        rpy_it.setZero();
+        pos_it.setZero();
+        for(auto &action_ : actions_robot)
+        {
+            if(action_.obj_index == i)
+            {
+                action_.pos = action_.pos - pos_it;
+                action_.rpy = action_.rpy - rpy_it;
+
+                pos_it += action_.pos;
+                rpy_it += action_.pos;
+            }
+        }
+    }
 }
-void getActionsFromPath(std::string filename,std::vector<std::vector<int>> group_indices)
+
+void getActionsFromPath(std::string filename,std::vector<std::vector<int>> group_indices,std::vector<ActionP> &actions_)
 {
 
     std::string str = "path_result/" + filename + ".txt";
     std::ifstream inFile(str); // CHANGE W FILENAME
     std::string gr_name, num;
     std::vector<std::vector<double>> path;
+
+    int dim = 0;
+    for(auto &g : group_indices)
+        for(auto &gg : g)
+            dim++;
 
     if (inFile.is_open())
     {
@@ -43,7 +86,7 @@ void getActionsFromPath(std::string filename,std::vector<std::vector<int>> group
             if(line.size() < 2)
                 break;
 
-            for (int i = 0; i < 6; i++)
+            for (int i = 0; i < dim; i++)
             {
                 std::getline(ss, num, ' ');
                 state.push_back(stod(num));
@@ -51,10 +94,10 @@ void getActionsFromPath(std::string filename,std::vector<std::vector<int>> group
             path.push_back(state);
         }
     }
-    std::vector<std::pair<int,std::vector<double>>> actions_;
 
-    for(int i = 1 ; i < path.size(); i++)
+    for(size_t i = 1 ; i < path.size(); i++)
     {
+
         int actionGroup = indexToGroup(path.at(i-1),path.at(i),group_indices);
 
         std::vector<double> action_vals;
@@ -63,12 +106,10 @@ void getActionsFromPath(std::string filename,std::vector<std::vector<int>> group
         {
             action_vals.push_back(path.at(i).at(gr_index));
         }
-        actions_.push_back(std::make_pair(actionGroup,action_vals));
+        actions_.push_back(ActionP(actionGroup,action_vals));
 
     }
-
     std::cout << "test"<<std::endl;
-    translateActions(actions_);
 }
 
 
