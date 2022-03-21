@@ -123,7 +123,7 @@ MatrixXd actual_quaternion(MatrixXd obj_rpy){
     MatrixXd rp_new(1,3);
     rp_new << 0.0, 0.0, 0.0;
     quaternion << rpy_to_quaternion(rp_new(0),rp_new(1),rp_new(2));
-    for(int i= 0; i < obj_rpys.size() ; i++){
+    for(size_t i= 0; i < obj_rpys.size() ; i++){
             quaternion = rmv(obj_rpys[i],quaternion);
     }
     return quaternion;
@@ -155,7 +155,7 @@ MatrixXd actual_quaternion(MatrixXd rot_rpy, int surf_no){
             break;
     }
 
-    for(int i= 0; i < rot_rpys.size() ; i++){
+    for(size_t i= 0; i < rot_rpys.size() ; i++){
         quaternion = rmv(rot_rpys[i],quaternion);
     }
     return quaternion;
@@ -175,7 +175,7 @@ MatrixXd quaternion_x_y_z(MatrixXd rpy){
     quats.push_back(get_quaternion_vorne(rp_new));
     quats.push_back(get_quaternion_oben(rp_new));
 
-    for(int i= 0; i < new_rpys.size() ; i++){
+    for(size_t i= 0; i < new_rpys.size() ; i++){
         for(int j = 0 ; j< 6 ; j++){
             quats[j] = rmv(new_rpys[i],quats[j]);
         }
@@ -190,7 +190,7 @@ MatrixXd match_deg_to_rpy_new(MatrixXd rotation_rpy, Eigen::Quaterniond grasp_q)
     std::vector<MatrixXd> new_rpys = rpy_to_vector(rotation_rpy);
     MatrixXd new_q = eigen_quaternion_to_matrix(grasp_q);
 
-    for(int i = 0; i<new_rpys.size(); i++){
+    for(size_t i = 0; i<new_rpys.size(); i++){
         new_q = rmv(new_rpys[i],new_q);
     }
     return new_q;

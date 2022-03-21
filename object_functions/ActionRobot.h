@@ -12,10 +12,12 @@
 #include <random>
 
 #include <Eigen/Dense>
-#include <robowflex_dart/point_collector.h>
+#include <robowflex_dart/Object.h>
 #include <tf2/LinearMath/Quaternion.h>
-
+#include <boost/filesystem.hpp>
 using namespace Eigen;
+
+
 
 struct ActionR{ // action for robot
 
@@ -40,9 +42,6 @@ public:
     ActionR action;
 
         ActionRobot(ActionR action_) : action(action_){}
-
-
-        void translateActions();
 
 };
 

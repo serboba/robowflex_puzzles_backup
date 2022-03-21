@@ -1,6 +1,9 @@
 //
 // Created by serboba on 12.11.21.
 //
+#ifndef ROBOWFLEX_DART_OBJECT_H
+#define ROBOWFLEX_DART_OBJECT_H
+
 
 #include <iostream>
 #include <fstream>
@@ -10,12 +13,10 @@
 
 #include <Eigen/Dense>
 #include <robowflex_library/util.h>
-#include <robowflex_dart/point_collector.h>
 #include <tf2/LinearMath/Quaternion.h>
+#include <robowflex_dart/conversion_functions.h>
+#include <boost/filesystem.hpp>
 
-
-#ifndef ROBOWFLEX_DART_OBJECT_H
-#define ROBOWFLEX_DART_OBJECT_H
 
 using namespace Eigen;
 
@@ -44,6 +45,8 @@ struct OJoints{
 class Object {
     public:
 
+        //tf2::Quaternion actual_rotation;
+
         OJoints joints;
         OLink link;
         std::string group_name;
@@ -61,6 +64,11 @@ class Object {
         void get_objects_from_urdf();
 };
 
+
+void read_obj_txt_file(std::string filename,std::vector<Object> &objects_);
+
+
+void create_txt_from_urdf();
 
 #endif //ROBOWFLEX_DART_OBJECT_H
 

@@ -18,7 +18,6 @@
 #include <robowflex_dart/tsr.h>
 #include <robowflex_dart/world.h>
 #include <robowflex_dart/ActionRobot.h>
-
 #include <robowflex_dart/point_collector.h>
 #include <robowflex_dart/conversion_functions.h>
 #include <robowflex_dart/quaternion_factory.h>

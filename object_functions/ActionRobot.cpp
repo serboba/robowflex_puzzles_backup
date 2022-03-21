@@ -8,6 +8,11 @@
 #include <stdio.h>
 
 
+boost::filesystem::path pp_(boost::filesystem::current_path().parent_path().parent_path().parent_path());
+const std::string abs_path = pp_.string() + "/src/robowflex/robowflex_dart/include/io/";
+
+
+
 int indexToGroup(std::vector<double>s_from,std::vector<double>s_to,std::vector<std::vector<int>> group_indices)
 {
         for(size_t i = 0; i < group_indices.size() ; i++)
@@ -66,7 +71,7 @@ void translateActions(std::vector<ActionP> &actions_, std::vector<Object> object
 void getActionsFromPath(std::string filename,std::vector<std::vector<int>> group_indices,std::vector<ActionP> &actions_)
 {
 
-    std::string str = "path_result/" + filename + ".txt";
+    std::string str = abs_path+"path_result/" + filename + ".txt";
     std::ifstream inFile(str); // CHANGE W FILENAME
     std::string gr_name, num;
     std::vector<std::vector<double>> path;
